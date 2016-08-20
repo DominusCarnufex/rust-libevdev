@@ -1,0 +1,335 @@
+---
+subtitle: Chapitre 1 &mdash; Entrée en matière
+navtitle: Chapitre 1 &mdash; Entrée en matière
+branch: chapitre1
+btnlink: "!BASE_URL!/journal/chapitre-1.rst"
+pubdate: 20 août 2016
+---
+
+<p>Ce premier chapitre sera relativement long, et je m’en excuse d’avance. Comme toujours quand on débute l’apprentissage d’un nouveau langage, il y a beaucoup de choses à voir d’un coup pour obtenir un résultat concret même minimal. C’est d’autant plus vrai ici qu’il faut <em>également</em> découvrir libevdev.</p>
+<p>Alors n’attendons pas plus.</p>
+<div class="contents topic" id="sommaire">
+<p class="topic-title first">Sommaire</p>
+<ul class="simple">
+<li><a class="reference internal" href="#bonjour-la-rouille" id="id4">Bonjour, la rouille !</a></li>
+<li><a class="reference internal" href="#a-lattaque" id="id5">À l’attaque !</a></li>
+<li><a class="reference internal" href="#interrogation-timide" id="id6">Interrogation timide</a></li>
+<li><a class="reference internal" href="#objectif-no-1-ouvrir-un-fichier-device" id="id7">Objectif nº&nbsp;1 : ouvrir un fichier <em>device</em></a></li>
+<li><a class="reference internal" href="#objectif-no-2-un-ioctl-a-la-mer" id="id8">Objectif nº 2 : un IOCTL à la mer</a></li>
+</ul>
+</div>
+<h1 id="bonjour-la-rouille">Bonjour, la rouille !</h1>
+<p>Avant d’envisager quoi que ce soit d’autre, il vous faut installer le compilateur Rust et la bibliothèque standard. Vous trouverez tout le nécessaire sur la <a class="reference external" href="https://www.rust-lang.org/en-US/downloads.html">page de téléchargement</a> du site officiel.</p>
+<p>Prenez bien garde, cependant, d’utiliser la version Nightly ! La programmation système utilise des outils qui sont encore considérés comme instables et ne sont donc pas disponibles dans les versions Stable et Bêta du compilateur. Dès que l’installation est faite, vous pouvez entrer la commande suivante pour vérifier que tout s’est bien passé.</p>
+<pre class="code console literal-block">
+<span class="generic prompt">carnufex&#64;KAMARAD-PC $</span> rustc -V
+<span class="generic output">rustc 1.12.0-nightly (080e0e072 2016-08-08)</span>
+</pre>
+<p>Et afin de se frotter sans attendre au langage, voici un programme minimal.</p>
+<pre class="code rust literal-block">
+<span class="keyword">fn</span><span class="whitespace"> </span><span class="name">main</span><span class="punctuation">()</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;Bonjour, la rouille !&quot;</span><span class="punctuation">);</span><span class="whitespace"> </span><span class="comment single">// « Hello, Rust! », pour ceux qui
+</span><span class="whitespace">                                </span><span class="comment single">// n’auraient pas fait le rapprochement.
+</span><span class="punctuation">}</span>
+</pre>
+<p>Pour compiler, utilisez la commande suivante.</p>
+<pre class="code console literal-block">
+<span class="generic output">rustc -O -C prefer-dynamic -o test bonjour.rs</span>
+</pre>
+<p>Vous ne serez pas surpris en apprenant que l’argument <code>-O</code> permet d’appliquer autant que possible les optimisations à la compilation, ni que l’argument <code>-o</code> sert à définir le nom du programme compilé. En l’absence de celui-ci, le programme porte le même nom que le fichier source, sans le <code>.rs</code>.</p>
+<p>L’option <code>-C prefer-dynamic</code> indique à rustc de lier dynamiquement les bibliothèques à l’exécutable (et en particulier la bibliothèque standard). En effet, Rust est de ces langages qui, par défaut, lient les bibliothèques statiquement.</p>
+<p>Outre que cela fait exploser la taille des exécutables (649 Ko ici, au lieu de 9 Ko), cela devient complètement ridicule quand on écrit une bibliothèque : si l’on écrit plusieurs bibliothèques, elles seront toutes liées statiquement aux mêmes bibliothèques, chacune de leur côté. Cet argument vous sera donc bien utile.</p>
+<p>Testez. Profitez. Et puis passons à l’analyse du code lui-même.</p>
+<p>Comme vous connaissez un peu de C, tout devrait vous être relativement familier. Les commentaires, tout d’abord : <code>//</code> pour un commentaire sur une seule ligne, et la paire <code>/*</code> et <code>*/</code> pour un commentaire sur plusieurs lignes. Le fait d’écrire une chaîne de caractères entre guillemets doubles, ensuite, même si l’analogie s’arrête là. Le point-virgule à la fin d’une instruction, enfin, qui connaît cependant une exception (on la verra en temps utile).</p>
+<p>Par ailleurs, tout exécutable se doit d’avoir une fonction <code>main</code>, qui ne prend pas d’argument et ne renvoie rien. D’où la syntaxe très simple, avec le mot-clé <code>fn</code>, les parenthèses vides, et les accolades qui délimitent le bloc de la fonction.</p>
+<p>Pour finir, <code>println</code> n’est pas une fonction, mais une <strong>macro</strong>, ainsi que l’indique le <code>!</code> après son nom. Les macros de Rust n’ont pas grand chose à voir avec celles de C, et leur fonctionnement interne est une notion assez avancée, donc on va laisser cela de côté. La bonne nouvelle, c’est qu’il n’y a pas besoin d’importer quoi que ce soit pour bénéficier de quelque chose d’aussi universellement utile.</p>
+<p>Pour votre culture, il existe aussi une macro <code>print</code> qui fait tout comme <code>println</code>, mais sans le retour à la ligne à la fin.</p>
+<h1 id="a-lattaque">À l’attaque !</h1>
+<p>Ceci étant dit, par où commence-t-on quand on veut remplacer une bibliothèque fondamentale de son système d’exploitation ? La première idée qui vient à l’esprit est <a class="reference external" href="https://www.freedesktop.org/wiki/Software/libevdev/">la page officielle</a> de ladite bibliothèque. Et c’est ici une bonne idée. En effet, on y trouve un lien vers la documentation, un autre vers le code source de la dernière version en date, et même un code d’exemple de la manière de l’utiliser.</p>
+<p>Il est évidemment indispensable de télécharger le code source de la bibliothèque, et d’installer <em>a minima</em> les fichiers d’en-tête <code>libevdev.h</code> et <code>libevdev-uinput.h</code> à un endroit où votre compilateur C saura les trouver. Selon votre distribution, vous pouvez également installer le paquet <code>libevdev-dev</code> ou quel que soit son nom, mais cela ne vous dispense pas d’avoir le code source complet sous la main.</p>
+<p>Quant au code d’exemple, vous allez vite vous rendre compte qu’il est inutilisable en l’état. En effet, il manque la fonction <code>main</code>, ansi que tous les en-têtes, et le code utilise des fonctions qui n’existent pas. Voici donc une version légèrement et salement modifiée, qui compile, elle.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#include</span> <span class="comment preprocfile">&lt;errno.h&gt;</span><span class="comment preproc">
+#include</span> <span class="comment preprocfile">&lt;fcntl.h&gt;</span><span class="comment preproc">
+#include</span> <span class="comment preprocfile">&lt;stdio.h&gt;</span><span class="comment preproc">
+#include</span> <span class="comment preprocfile">&lt;stdlib.h&gt;</span><span class="comment preproc">
+#include</span> <span class="comment preprocfile">&lt;string.h&gt;</span><span class="comment preproc">
+</span>
+<span class="comment preproc">#include</span> <span class="comment preprocfile">&lt;libevdev.h&gt;</span><span class="comment preproc">
+</span>
+<span class="keyword type">int</span> <span class="name function">main</span><span class="punctuation">()</span>  <span class="punctuation">{</span>
+    <span class="keyword">struct</span> <span class="name">libevdev</span> <span class="operator">*</span><span class="name">dev</span> <span class="operator">=</span> <span class="name builtin">NULL</span><span class="punctuation">;</span>
+    <span class="keyword type">int</span> <span class="name">fd</span><span class="punctuation">;</span>
+    <span class="keyword type">int</span> <span class="name">rc</span> <span class="operator">=</span> <span class="literal number integer">1</span><span class="punctuation">;</span>
+    <span class="name">fd</span> <span class="operator">=</span> <span class="name">open</span><span class="punctuation">(</span><span class="literal string">&quot;/dev/input/event6&quot;</span><span class="punctuation">,</span> <span class="name">O_RDONLY</span><span class="operator">|</span><span class="name">O_NONBLOCK</span><span class="punctuation">);</span>
+    <span class="name">rc</span> <span class="operator">=</span> <span class="name">libevdev_new_from_fd</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="operator">&amp;</span><span class="name">dev</span><span class="punctuation">);</span>
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span> <span class="punctuation">{</span>
+        <span class="name">fprintf</span><span class="punctuation">(</span><span class="name">stderr</span><span class="punctuation">,</span> <span class="literal string">&quot;Failed to init libevdev (%s)</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">strerror</span><span class="punctuation">(</span><span class="operator">-</span><span class="name">rc</span><span class="punctuation">));</span>
+        <span class="name">exit</span><span class="punctuation">(</span><span class="literal number integer">1</span><span class="punctuation">);</span>
+    <span class="punctuation">}</span>
+    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;Input device name: </span><span class="literal string escape">\&quot;</span><span class="literal string">%s</span><span class="literal string escape">\&quot;\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">libevdev_get_name</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">));</span>
+    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;Input device ID: bus %#x vendor %#x product %#x</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span>
+       <span class="name">libevdev_get_id_bustype</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">),</span>
+       <span class="name">libevdev_get_id_vendor</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">),</span>
+       <span class="name">libevdev_get_id_product</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">));</span>
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="operator">!</span><span class="name">libevdev_has_event_type</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">EV_REL</span><span class="punctuation">)</span> <span class="operator">||</span>
+        <span class="operator">!</span><span class="name">libevdev_has_event_code</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">EV_KEY</span><span class="punctuation">,</span> <span class="name">BTN_LEFT</span><span class="punctuation">))</span>
+    <span class="punctuation">{</span>
+        <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;This device does not look like a mouse</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">);</span>
+        <span class="name">exit</span><span class="punctuation">(</span><span class="literal number integer">1</span><span class="punctuation">);</span>
+    <span class="punctuation">}</span>
+    <span class="keyword">do</span> <span class="punctuation">{</span>
+        <span class="keyword">struct</span> <span class="name">input_event</span> <span class="name">ev</span><span class="punctuation">;</span>
+        <span class="name">rc</span> <span class="operator">=</span> <span class="name">libevdev_next_event</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">LIBEVDEV_READ_FLAG_NORMAL</span><span class="punctuation">,</span> <span class="operator">&amp;</span><span class="name">ev</span><span class="punctuation">);</span>
+        <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">==</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+            <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;Event: %s %s %d</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span>
+               <span class="literal string">&quot;[placeholder]&quot;</span><span class="punctuation">,</span>
+               <span class="literal string">&quot;[placeholder]&quot;</span><span class="punctuation">,</span>
+               <span class="name">ev</span><span class="punctuation">.</span><span class="name">value</span><span class="punctuation">);</span>
+    <span class="punctuation">}</span> <span class="keyword">while</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">==</span> <span class="literal number integer">1</span> <span class="operator">||</span> <span class="name">rc</span> <span class="operator">==</span> <span class="literal number integer">0</span> <span class="operator">||</span> <span class="name">rc</span> <span class="operator">==</span> <span class="operator">-</span><span class="name">EAGAIN</span><span class="punctuation">);</span>
+
+    <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Un petit point s’impose avant d’aller plus loin. Dans les grandes lignes, ce code ouvre le fichier <code>/dev/input/event6</code>, appelle toute une série de fonctions de libevdev pour mettre en place la communication avec le périphérique et affiche leur résultat, puis affiche quelques informations sur chacun des événements renvoyés par le périphérique.</p>
+<p>Il faut savoir que, chaque fois qu’un périphérique d’entrée est branché sur votre ordinateur, evdev crée un fichier de type <em>device</em> dans <code>/dev/input/</code> pour le représenter. Celui-ci portera le nom <code>eventN</code>, en fonction de l’ordre dans lequel les périphériques ont été détectés.</p>
+<p>Pour ceux qui ne seraient pas familiers du procédé, dans les systèmes d’exploitation de la famille Unix, tout est un fichier. Les périphériques, la sortie standard (<code>stdout</code>), les processus en cours d’exécution, la mémoire vive, et même le néant intersidéral (<code>/dev/null</code>). Ils sont <em>tous</em> représentés par des fichiers, situés essentiellement dans <code>/dev/</code> et <code>/proc/</code>.</p>
+<p>De cette manière, pour le programmeur, interagir avec l’un de ces éléments « abstraits » ne consiste en rien d’autre qu’à ouvrir le fichier qui le représente (<code>open()</code>), lire et écrire dedans (<code>read()</code> et <code>write()</code>) et/ou réaliser un IOCTL dessus (en très gros, c’est une lecture-écriture dopée aux stéroïdes), puis le fermer (<code>close()</code>). Ce qui est évidemment <em>extrêmement</em> pratique.</p>
+<p>Le nom exact du fichier qui représente la souris <em>chez vous</em> n’est donc pas nécessairement <code>event6</code>, et vous devrez modifier le code en circonstance. Généralement, <code>/dev/input/</code> contient un sous-dossier <code>by-path</code> avec des liens vers les fichiers <em>device</em> ayant un nom plus clair : cherchez celui ou ceux qui se terminent par <code>-event-mouse</code>, et voyez sur quel <code>eventN</code> il pointe.</p>
+<p>À présent, je vous laisse compiler comme des grands. Le résultat du programme saute aux yeux : au moindre déplacement de votre souris, aussi minime soit-il, une ligne apparaît sur la sortie standard, avec deux <code>[placeholder]</code> et un nombre, correspondant au déplacement de votre souris dans une direction ou une autre.</p>
+<div class="important">
+<p class="first admonition-title"></p>
+<p>Pour des raisons évidentes de sécurité, n’importe qui ne peut pas accéder à la porte d’entrée directe vers le noyau, et vous devrez lancer votre programme avec les pouvoirs d’administrateur pour qu’il s’exécute correctement.</p>
+<p class="last">De plus, seul un <code>Ctrl + C</code> permettra d’arrêter le programme.</p>
+</div>
+<p>Ce simple code d’exemple permet déjà de comprendre quelques petites choses sur le fonctionnement de libevdev. En premier lieu, la fonction d’entrée dans libevdev est <code>libevdev_new_from_fd</code>, qui à partir du descripteur de fichier correspondant au fichier <em>device</em>, renvoie un <code>struct libevdev</code>. Cet objet doit ensuite être passé à toutes les fonctions subséquentes de libevdev, en lieu et place du descripteur de fichier.</p>
+<p>En deuxième lieu, il existe de nombreuses fonctions comme <code>libevdev_get_name</code> et <code>libevdev_has_event_type</code> qui servent simplement à interroger le périphérique pour obtenir des informations à son sujet.</p>
+<p>En troisième lieu, chaque fois que le périphérique est manipulé dans le monde extérieur, evdev génère un événement, qui peut être récupéré au moyen de la fonction <code>libevdev_next_event</code> sous la forme d’un type <code>struct input_event</code>.</p>
+<p>Il y a bien évidemment beaucoup d’autres fonctions et possibilités dans la bibliothèque, mais cela nous donne un point de départ et un angle d’attaque, dont il sera toujours temps de s’écarter plus tard. Je vous invite donc à présent à aller parcourir le code source de la bibliothèque, pour voir par vous-mêmes comment il est organisé, et en particulier comment fonctionnent dans les grandes lignes les fonctions utilisées par le code ci-dessus.</p>
+<p>C’est fait ?</p>
+<p>C’est bien. Voici les premières observations qui peuvent être faites après une lecture superficielle du code (pas besoin de plus pour l’instant).</p>
+<ul class="simple">
+<li>Comme c’est souvent le cas avec les bibliothèques système de Linux, l’API exposée par le noyau est composée exclusivement d’IOCTL, dont on peut trouver la liste complète dans le dossier <code>include/</code> et en particulier dans <code>input.h</code>.</li>
+<li>Le fichier <code>libevdev-uinput.c</code> et les autres fichiers qui lui sont associés semblent créer une surcouche à libevdev même, que nous pouvons donc oublier dans un premier temps.</li>
+<li>Il existe en réalité deux points d’entrée dans la bibliothèque : soit créer un <code>struct libevdev</code> avec <code>libevdev_new</code> puis l’initialiser avec <code>libevdev_set_fd</code>, soit passer directement par <code>libevdev_new_from_fd</code> qui fait les deux d’un coup. En outre, en principe, on est censé faire appel à <code>libevdev_free</code> avant de quitter la bibliothèque, pour nettoyer derrière soi.</li>
+<li>Le type <code>struct libevdev</code> est défini dans <code>libevdev-int.h</code> et est une structure très, très touffue.</li>
+<li>Très peu de fonctions de la bibliothèque font des IOCTL : les fonctions <code>sync_*_state</code>, une ou deux autres fonctions du même type, et surtout <code>libevdev_set_fd</code> dont on vient de parler.</li>
+</ul>
+<p>De tout cela, on en déduit que l’organisation générale est la suivante : la fonction <code>libevdev_set_fd</code> réalise la plupart des IOCTL, qui sont coûteux, une bonne fois pour toutes, et place le résultat dans un des nombreux champs de <code>struct libevdev</code> ; de cette manière, les fonctions visant à interroger le périphérique vont simplement vérifier les champs de <code>struct libevdev</code>, opération nettement moins coûteuse ; l’essentiel des autres IOCTL correspond aux occasions où l’on ne peut pas s’en passer, en particulier lorsqu’il faut resynchroniser le <code>struct libevdev</code> et l’état réel du périphérique.</p>
+<p>Eh bien voilà ! Nous savons désormais par où commencer !</p>
+<h1 id="interrogation-timide">Interrogation timide</h1>
+<p>Pour avoir un semblant de résultat qu’il nous sera possible de comparer avec le programme en C, nous devons parvenir à faire deux choses avec notre programme en Rust.</p>
+<ol class="arabic simple">
+<li>Ouvrir le fichier <em>device</em> correspondant à la souris.</li>
+<li>Réaliser le <code>printf</code> de la ligne 20, c’est-à-dire implémenter les trois fonctions <code>libevdev_get_id_*</code>.</li>
+</ol>
+<p>Le premier objectif est indépendant de libevdev. Quant au second, le fichier <code>libevdev.c</code> nous apprend que ces trois fonctions (et une quatrième qui n’apparaît pas dans le code) renvoient simplement un des quatre sous-champs du champ <code>ids</code> du <code>struct libevdev</code>.</p>
+<p>Le fichier <code>libevdev-int.h</code> nous apprend que ce champ <code>ids</code> est de type <code>struct input_id</code>, lequel type est à son tour défini dans le fichier <code>include/linux/input.h</code> comme suit.</p>
+<pre class="code c literal-block" id="struct-input-id">
+<span class="keyword">struct</span> <span class="name">input_id</span> <span class="punctuation">{</span>
+        <span class="name">__u16</span> <span class="name">bustype</span><span class="punctuation">;</span>
+        <span class="name">__u16</span> <span class="name">vendor</span><span class="punctuation">;</span>
+        <span class="name">__u16</span> <span class="name">product</span><span class="punctuation">;</span>
+        <span class="name">__u16</span> <span class="name">version</span><span class="punctuation">;</span>
+<span class="punctuation">};</span>
+</pre>
+<p>Enfin, c’est naturellement dans la fonction <code>libevdev_set_fd</code> que ce champ est rempli en premier lieu, et plus spécifiquement grâce à la ligne suivante.</p>
+<pre class="code c literal-block">
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGID</span><span class="punctuation">,</span> <span class="operator">&amp;</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">ids</span><span class="punctuation">);</span>
+</pre>
+<p>Et quid de <code>EVIOCGID</code> ? Il est lui aussi défini dans <code>include/linux/input.h</code>, sous la forme de cette macro.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#define EVIOCGID        _IOR('E', 0x02, struct input_id)</span>
+</pre>
+<p>Oui, c’est laid, et cela ne nous apprend pas grand chose. Si vous allez fouiller dans l’en-tête <code>sys/ioctl.h</code> du noyau Linux, vous trouverez la définition de la macro <code>_IOR</code>, qui s’appuie elle-même sur une autre macro, bref, on a déjà perdu trop de temps pour si peu. Utilisez le code suivant, et voyez ce qui s’affiche à l’exécution (<em>spoil</em> : c’est <code>0x80084502</code>).</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#include</span> <span class="comment preprocfile">&lt;stdio.h&gt;</span><span class="comment preproc">
+#include</span> <span class="comment preprocfile">&lt;sys/ioctl.h&gt;</span><span class="comment preproc">
+</span>
+<span class="comment preproc">#define EVIOCGID        _IOR('E', 0x02, struct input_id)
+</span>
+<span class="keyword type">int</span> <span class="name function">main</span><span class="punctuation">()</span>  <span class="punctuation">{</span>
+    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;EVIOCGID = %#x</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">EVIOCGID</span><span class="punctuation">);</span>
+    <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Vous pourrez bien évidemment réemployer ce procédé pour tous les IOCTL que vous rencontrerez au cours de cette aventure.</p>
+<div class="note">
+<p class="first admonition-title"></p>
+<p class="last">Si ce n’est pas encore fait, apprenez de toute urgence à utiliser le programme <code>grep</code> : il sera votre meilleur ami pour retrouver où une fonction, une macro ou une variable a été définie au milieu de tous les fichiers d’un code source, ou encore où elles sont employées ailleurs que là où vous les avez rencontrées la première fois.</p>
+</div>
+<h1 id="objectif-no-1-ouvrir-un-fichier-device">Objectif nº&nbsp;1 : ouvrir un fichier <em>device</em></h1>
+<p>Rust a été explicitement pensé pour pouvoir interagir facilement avec du code écrit en C. Cela se traduit par le fait qu’un pan entier de la bibliothèque standard du langage est destiné à faire appel aux fonctions de la bibliothèque standard de C. Ce pan s’appelle <code>libc</code>, et pour pouvoir l’utiliser, il vous faudra ajouter la ligne suivante au début de votre code source.</p>
+<pre class="code rust literal-block">
+<span class="keyword">extern</span><span class="whitespace"> </span><span class="keyword">crate</span><span class="whitespace"> </span><span class="name">libc</span><span class="punctuation">;</span>
+</pre>
+<p>La syntaxe est d’un usage plus général que pour le simple cas de <code>libc</code>, mais il est trop tôt pour parler du système de modules. Essayez de compiler votre programme. C’est un échec. Je l’ai fait exprès pour vous montrer un aspect fort appréciable de Rust : les erreurs de compilation sont <em>détaillées</em>. Voici ce qu’on obtient dans le cas présent.</p>
+<pre class="code console literal-block">
+<span class="generic output">evdev.rs:1:1: 1:19 error: use of unstable library feature 'libc': use `libc` from crates.io (see issue #27783)
+evdev.rs:1 extern crate libc;
+           ^~~~~~~~~~~~~~~~~~
+evdev.rs:1:1: 1:19 help: add #![feature(libc)] to the crate attributes to enable
+error: aborting due to previous error</span>
+</pre>
+<p>Il y a même, comme souvent, une suggestion de solution à apporter, et nous allons l’adopter, parce que c’est la bonne. Ajoutez cette ligne tout en haut de votre code source.</p>
+<pre class="code rust literal-block">
+<span class="comment preproc">#![feature(libc)]</span>
+</pre>
+<p>À présent, toutes les fonctions, tous les types et toutes les constantes de <code>libc</code> sont disponibles pour votre code source. Mais comme elles viennent d’un <em>crate</em> différent (Rust appelle ses paquets des <em>crates</em>), elles sont rangées dans un espace de noms spécifique, portant le même nom que le <em>crate</em>. La syntaxe pour y accéder est <code>&lt;crate&gt;::&lt;identifiant&gt;</code>.</p>
+<p>Il est possible de déplacer l’un ou l’autre de ces identifiants dans l’espace de noms général, à l’aide de l’instruction que voici.</p>
+<pre class="code rust literal-block">
+<span class="keyword namespace">use</span><span class="whitespace"> </span><span class="ajout">&lt;crate&gt;</span><span class="operator">::</span><span class="ajout">&lt;identifiant&gt;</span><span class="punctuation">;</span>
+</pre>
+<p>Si on veut importer plusieurs identifiants d’un coup, on peut le faire au moyen de la syntaxe <code>use &lt;crate&gt;::{&lt;id1&gt;, &lt;id2&gt;, &lt;id3&gt;};</code>, voire utiliser <code>use &lt;crate&gt;::*;</code> pour tous les importer. Ce qui dans le cas de <code>libc</code> serait très hasardeux.</p>
+<p>C’est une affaire de goût, mais de manière générale, je décourage l’importation d’un quelconque identifiant de <code>libc</code> à part les types : je préfère rester clair quant au fait qu’il s’agit de fonctions C, donc potentiellement dangereuses.</p>
+<p>Et naturellement, pour ouvrir un fichier, nous allons nous intéresser à la fonction <code>libc::open</code>, qui prend comme argument un <code>*const libc::c_char</code> (un pointeur nu constant vers des <code>char</code> de C, donc) représentant le chemin d’accès au fichier, et un <code>libc::c_int</code> représentant les drapeaux. Elle renvoie un <code>libc::c_int</code>.</p>
+<p>Dans votre fonction <code>main</code>, vous allez donc ajouter la ligne suivante.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">fd</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">open</span><span class="punctuation">(</span><span class="literal number integer">0</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword reserved">const</span><span class="whitespace"> </span><span class="name">c_char</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_RDONLY</span><span class="whitespace"> </span><span class="operator">|</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_NONBLOCK</span><span class="punctuation">);</span>
+</pre>
+<p>Vous avez certainement deviné ce qui se passe dans cette ligne, mais on va quand même tout expliquer pour être sûr de ne rien rater.</p>
+<p>La syntaxe <code>let &lt;identifiant&gt; = &lt;expression&gt;;</code> est utilisée pour déclarer une variable. La convention veut qu’un identifiant de variable soit en <em>snake_case</em>, et si vous ne respectez pas cette convention, le compilateur va rouspéter.</p>
+<p>Notez également que, par défaut, une variable est non mutable. Le code suivant ne compilera pas.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">a</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number integer">2</span><span class="punctuation">;</span><span class="whitespace">
+</span><span class="name">a</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number integer">42</span><span class="punctuation">;</span>
+</pre>
+<p>Si vous voulez que votre variable soit mutable, il faudra utiliser la syntaxe <code>let mut</code> à la place. Sachez que rendre une variable mutable sans nécessité absolue est considérée comme une mauvaise pratique, et que rustc produira un avertissement si une variable mutable n’est jamais modifiée par le code.</p>
+<p>Deuxième point à noter, il est possible de déclarer une variable sans l’initialiser. Cependant, rustc vous attend au tournant, et refusera de compiler si vous essayez de lire le contenu de cette variable sans qu’il soit absolument certain qu’elle a nécessairement été initialisée avant cette lecture. De cette manière, Rust empêche l’accès à des données qui seraient dans un état indéterminé.</p>
+<p>Troisième point, on peut également déclarer explicitement le type de la variable au moment de sa définition. La syntaxe est la suivante.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="ajout">&lt;identifiant&gt;</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="ajout">&lt;type&gt;</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="error">…</span>
+</pre>
+<p>Mais Rust utilise l’inférence de types, et il n’est généralement pas nécessaire de préciser le type d’une variable, alors profitez-en pour alléger le code.</p>
+<p>Reste un dernier morceau de syntaxe à expliquer : <code>0 as *const c_char</code>. L’idée est bien évidemment de passer un pointeur <code>NULL</code> à la fonction. Mais en l’absence d’autre indication, et si l’inférence de type ne pointe pas vers un autre type numérique, une valeur immédiate entière est considérée comme un <code>i32</code>, c’est-à-dire un entier signé sur 32 bits.</p>
+<p>Et un pointeur n’est pas un type numérique en Rust. Il est donc obligatoire de faire une conversion de types explicite, ce qui s’accomplit au moyen du mot-clé <code>as</code>, sans difficulté particulière.</p>
+<p>Essayez donc de compiler. Vous obtenez l’erreur suivante.</p>
+<pre class="code console literal-block">
+<span class="generic output">evdev.rs:9:14: 10:56 error: call to unsafe function requires unsafe function or block [E0133]
+evdev.rs:9     let fd = libc::open(0 as *const c_char,
+                        ^
+evdev.rs:9:14: 10:56 help: run `rustc --explain E0133` to see a detailed explanation</span>
+</pre>
+<p>Là encore, c’était fait exprès, pour pouvoir vous montrer votre nouveau meilleur ami : la commande <code>rustc --explain</code>. La plupart des erreurs de compilation peuvent vous être expliquées en détail si vous le souhaitez, et c’est un très bon complément à l’apprentissage du langage lui-même.</p>
+<p>Dans le cas qui nous intéresse, le problème vient du fait que <code>libc::open</code> est une fonction qui a été déclarée comme <code>unsafe</code> dans sa définition. On l’a déjà dit, Rust essaye d’apporter le plus de sécurité possible au code, et pour ce faire, il offre la possibilité de déclarer explicitement qu’une fonction <em>n’est pas</em> sûre et doit être utilisée avec précaution.</p>
+<p>Il existe deux situations dans lesquelles vous pouvez faire appel à des éléments <code>unsafe</code> du langage. Soit dans le code d’une fonction que vous avez déclarée comme <code>unsafe</code> : on verra comment faire en temps utile. Soit en entourant les passages incriminés d’un bloc <code>unsafe { … }</code>. Notre ligne de tout à l’heure devrait donc s’écrire ainsi.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">fd</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="keyword">unsafe</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">open</span><span class="punctuation">(</span><span class="literal number integer">0</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword reserved">const</span><span class="whitespace"> </span><span class="name">c_char</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_RDONLY</span><span class="whitespace"> </span><span class="operator">|</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_NONBLOCK</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="punctuation">};</span>
+</pre>
+<p>Reste un problème : ouvrir un pointeur <code>NULL</code>, cela ne nous amènera rien de bon. Il faudrait passer le nom du fichier <em>device</em> que l’on veut ouvrir. Seulement, les chaînes de caractères en Rust n’ont presque rien à voir avec les chaînes de caractères en C.</p>
+<p>Dans ce dernier langage, une chaîne de caractères est une suite de <code>char</code> contigus, c’est-à-dire d’entiers sur 8 bits, dont le dernier vaut 0, ou <code>'\0'</code> comme on peut l’écrire de manière plus claire. En Rust, les <code>char</code> sont encodés en UTF-8, et occupent pour cette raison 32 bits. Il existe par ailleurs deux types de chaînes de caractères.</p>
+<p>Lorsque vous fournissez une valeur immédiate de type chaîne, par exemple <code>&quot;/dev/input/event6&quot;</code>, celle-ci a pour type <code>&amp;str</code>. Il est trop tôt pour expliquer en quoi cela consiste exactement, mais l’important à retenir, c’est que c’est un type natif du langage, et qu’il <em>n’est pas</em> terminé par un <code>'\0'</code> comme en C. Il est très hasardeux de partir du principe que l’octet suivant la chaîne en mémoire sera bien un 0, et qu’on peut donc le passer sans danger à <code>libc::open</code>.</p>
+<p>L’autre type de chaînes est le type <code>String</code>. Lui est un objet défini dans la bibliothèque standard, et sa représentation interne est bien cachée. Surtout, contrairement à <code>&amp;str</code>, il existe un moyen simple d’ajouter un caractère à la fin de la chaîne.</p>
+<p>Toutes les manipulations que nous allons effectuer seront faites au moyen de méthodes que la bibliothèque standard a définies pour les types <code>&amp;str</code> et <code>String</code>. Leur syntaxe d’appel ne surprendra personne, puisqu’il s’agit de <code>&lt;objet&gt;.&lt;méthode&gt;(&lt;arguments&gt;)</code>. Nous allons en utiliser trois ici.</p>
+<ul class="simple">
+<li><code>to_string()</code> est une méthode de <code>&amp;str</code>, qui renvoie un <code>String</code> contenant strictement la même chaîne de caractères.</li>
+<li><code>push(&lt;caractère&gt;)</code> est une méthode de <code>String</code>, qui ajoute un caractère à la fin de la chaîne. Cela n’a pas été précisé jusqu’à présent, mais un caractère s’écrit entre guillemets simples, comme dans la plupart des langages. Le gros défaut de cette méthode, c’est qu’elle ne renvoie rien, au lieu de renvoyer le <code>String</code> modifié : il n’est ainsi pas possible de chaîner les <code>push</code>, ni d’appliquer directement d’autre méthodes sur le <code>String</code> modifié.</li>
+<li><code>as_ptr()</code> est une méthode disponible pour les deux types, qui renvoie un pointeur nu sur les données brutes de la chaîne de caractères. Le type exact est <code>*const u8</code>, et vous aurez deviné que <code>u8</code> désigne un entier non signé sur 8 bits.</li>
+</ul>
+<p>Je vous laisse à présent essayer de trouver par vous-mêmes le code complet de l’ouverture de notre fichier <em>device</em>. Je mets la solution en-dessous, mais ne regardez pas tout de suite.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">st</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal string">&quot;/dev/input/event6&quot;</span><span class="punctuation">.</span><span class="name">to_string</span><span class="punctuation">();</span><span class="whitespace">
+</span><span class="name">st</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="literal string char">'\0'</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">pt</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">st</span><span class="punctuation">.</span><span class="name">as_ptr</span><span class="punctuation">()</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword reserved">const</span><span class="whitespace"> </span><span class="name">c_char</span><span class="punctuation">;</span><span class="whitespace">
+</span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">fd</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="keyword">unsafe</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">open</span><span class="punctuation">(</span><span class="name">pt</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_RDONLY</span><span class="whitespace"> </span><span class="operator">|</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_NONBLOCK</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="punctuation">};</span>
+</pre>
+<h1 id="objectif-no-2-un-ioctl-a-la-mer">Objectif nº 2 : un IOCTL à la mer</h1>
+<p>Pour cette deuxième étape, on va naturellement recourir à la fonction <code>libc::ioctl</code>. Elle prend en entrée un <code>libc::c_int</code> qui représente le descripteur de fichier sur lequel on va faire l’IOCTL, un <code>libc::c_ulong</code> qui représente l’identifiant unique de l’IOCTL et… d’éventuels arguments supplémentaires de types indéfinis. Je pense que vous commencez à imaginer quelle va être la difficulté.</p>
+<p>La valeur de retour de cette fonction est un <code>libc::c_int</code>, aucune difficulté là-dedans. Et bien évidemment, la fonction est <em>totalement</em> <code>unsafe</code>.</p>
+<p>Alors pour commencer, histoire de voir si vous avez assimilé ce que l’on a vu jusqu’à présent, vous allez écrire l’appel à la fonction <code>libc::ioctl</code>, en ne mettant pas de troisième argument, mais en mettant les bonnes valeurs pour les besoins de notre code. Il faut bien sûr que votre code compile.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">io</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="keyword">unsafe</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="literal number hex">0x80084502</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="name">c_ulong</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="punctuation">};</span>
+</pre>
+<p>S’il y a quelque chose là-dedans que vous ne comprenez pas, retournez lire les sections précédentes, tout y est expliqué. Et rien ne sert d’aller plus loin si ces notions ne sont pas acquises.</p>
+<p>Reste la question du troisième argument. Dans le code C, il s’agit d’un pointeur vers une variable de type <code>struct input_id</code> préalablement déclarée, dont le contenu sera fourni par l’IOCTL. En Rust, il va donc falloir commencer par définir un type équivalent à <code>struct input_id</code>.</p>
+<p>Si vous ne vous souvenez plus de la définition du type en C, elle se trouve dans <a class="reference internal" href="#struct-input-id">la section 4</a>. En Rust, voici comment il faudra le définir.</p>
+<pre class="code rust literal-block">
+<span class="comment preproc">#[repr(C)]</span><span class="whitespace">
+</span><span class="keyword">struct</span><span class="whitespace"> </span><span class="name">InputId</span><span class="whitespace">  </span><span class="punctuation">{</span><span class="whitespace">
+        </span><span class="name">bustype</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">vendor</span><span class="whitespace">  </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">product</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">version</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="whitespace">
+</span><span class="punctuation">}</span>
+</pre>
+<p>À nouveau, beaucoup de nouveautés. Alors prenons-les dans un ordre logique. Tout d’abord, la syntaxe générale pour déclarer une structure est la suivante.</p>
+<pre class="code rust literal-block">
+<span class="keyword">struct</span><span class="whitespace"> </span><span class="ajout">&lt;identifiant du type&gt;</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="ajout">[&lt;identifiant&gt;</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="ajout">&lt;type du champ&gt;</span><span class="punctuation">,</span><span class="ajout">]*</span><span class="whitespace">
+</span><span class="punctuation">}</span>
+</pre>
+<p>La dernière virgule est optionnelle, il est très important de <em>ne pas</em> mettre de point-virgule à la fin de la définition, et la convention veut que les identifiants de type soient en <em>CamelCase</em> (et rustc rouspète toujours si vous ne la respectez pas).</p>
+<p>Pour chaque champ, la présence du type est <em>obligatoire</em>. Tous les types ne peuvent pas être utilisés comme champs d’une structure, mais on verra cela en temps utile. Ici, les quatre champs sont des <code>u16</code>, soit des entiers non signés sur 16 bits, ce qui correspond strictement au type <code>__u16</code> utilisé en C.</p>
+<p>Enfin, il faut savoir que rustc fait un peu ce qu’il veut avec la représentation exacte en mémoire de ses structures. Pour être certain qu’il n’y touchera pas, et que la structure aura exactement la même représentation en mémoire que si elle avait été définie dans un programme en C, il faut ajouter la ligne <code>#[repr(C)]</code> avant le début de la définition.</p>
+<p>Dernier point à noter : cette définition de type doit se trouver <em>en dehors</em> de la fonction <code>main</code>, même si son emplacement exact est sans importance.</p>
+<p>Passons maintenant à l’étape suivante : créer une variable de type <code>InputId</code> dans notre fonction <code>main</code>, et initialiser tous ses champs à 0. Le code est le suivant.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">ii</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">InputId</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+        </span><span class="name">bustype</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">vendor</span><span class="whitespace">  </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">product</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">version</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="whitespace">
+</span><span class="punctuation">};</span>
+</pre>
+<p>Comme vous le voyez, la similarité avec la définition du type est frappante. Et malheureusement, il n’existe pas de solution plus économique pour mettre tous les champs de la structure à 0. Si vous décidez de ne pas l’initialiser, rustc vous enverra paître quand vous voudrez lire le contenu des champs après l’IOCTL, parce que <em>lui</em> ne sait pas que l’IOCTL a initialisé les champs (<code>unsafe</code>, tout ça…).</p>
+<p>Vous noterez que la variable est mutable. En effet, l’IOCTL va bien être obligé de modifier le contenu des champs, donc cela doit lui être permis.</p>
+<p>Il ne reste plus qu’à passer cette variable <code>ii</code> à <code>libc::ioctl</code>, sous la forme d’un pointeur nu. Cela va se faire en deux étapes.</p>
+<p>Premièrement, on va créer une référence mutable vers <code>ii</code>. La syntaxe est très simple, c’est <code>&amp;mut ii</code>. Vous devinerez sans peine qu’il est possible de faire des références non mutables avec la syntaxe <code>&amp;&lt;identifiant&gt;</code>. Oui, cela fait furieusement penser à <code>&amp;str</code>, et non, ce n’est pas un hasard, et non, je n’expliquerai pas plus en détail : les références sont un aspect très important de Rust, on y reviendra en temps utile.</p>
+<p>Deuxièmement, on va convertir cette référence en un pointeur nu, mutable lui aussi, au moyen de la syntaxe <code>as</code>. Le type de ce pointeur nu sera <code>*mut _</code>. Pourquoi <code>_</code> ? Parce qu’on ignore totalement le type exact qu’attend la fonction en C (il s’agit certainement d’un <code>void *</code>), alors, ben… on ne s’embête pas à le préciser. Voici, en conséquence, le code complet de l’appel à <code>libc::ioctl</code>.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">io</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="keyword">unsafe</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">libc</span><span class="operator">::</span><span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="literal number hex">0x80084502</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="name">c_ulong</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="operator">&amp;</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">ii</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">_</span><span class="punctuation">)</span><span class="whitespace">
+</span><span class="punctuation">};</span>
+</pre>
+<p>J’aimerais vous faire remarquer deux choses.</p>
+<p>Tout d’abord, la fonction marche tout aussi bien si vous utilisez une variable, une référence et un pointeur non mutables (<code>*const _</code> pour ce dernier). En effet, la fonction C qui reçoit l’appel ignore tout de Rust et de ses histoires de mutabilité, et pour elle, un pointeur est un pointeur. C’est pour les gens qui liront votre programme que vous devez mettre tous ces <code>mut</code> : sans cela, ils ne peuvent pas deviner au premier coup d’œil que l’IOCTL va modifier le contenu de <code>ii</code>.</p>
+<p>Ensuite, la conversion en pointeur nu n’est pas absolument nécessaire. Si vous essayez avec juste la référence, cela va compiler et s’exécuter correctement. Seulement, une référence est plus qu’un pointeur, elle contient aussi des informations sur la taille de l’objet qu’elle pointe, et il est donc <em>dangereux</em> de présumer que la fonction C va lire exactement ce qu’il faut en mémoire.</p>
+<p>Pour terminer de réaliser l’objectif, il ne nous reste plus qu’à afficher les trois valeurs qui nous ont été retournées par l’IOCTL.</p>
+<p>Vous vous souvenez certainement de la macro <code>println</code>. Elle est nettement plus proche de <code>printf</code> que ce que vous en avez vu pour l’instant. Il est ainsi possible de placer des « balises » dans la chaîne de caractères à afficher, représentées par <code>{}</code>, qui seront remplacées par les valeurs ou variables passées en arguments supplémentaires.</p>
+<p>Par exemple, ce code…</p>
+<pre class="code rust literal-block">
+<span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;Je vais compter de {} à {}.&quot;</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="literal number integer">42</span><span class="punctuation">);</span>
+</pre>
+<p>… affichera ce résultat.</p>
+<pre class="code console literal-block">
+<span class="generic output">Je vais compter de 1 à 42.</span>
+</pre>
+<p>Et il est possible de personnaliser un peu ces balises. Par exemple, avec <code>{:x}</code>, si un nombre est passé en argument, il sera affiché en notation hexadécimale. Et avec <code>{:p}</code>, c’est l’adresse du pointeur ou de la référence passés en argument qui sera affichée, plutôt que la valeur de la variable pointée.</p>
+<p>Quant à accéder aux champs d’une structure préexistante, cela se fait à l’aide d’une syntaxe qui ne vous surprendra pas le moins du monde, à savoir <code>&lt;identifiant&gt;.&lt;champ&gt;</code>. Je vous laisse à présent essayer de terminer ce programme, et vérifier que les résultats obtenus sont bien les mêmes qu’avec le programme en C. La solution est ci-dessous, mais prenez le temps d’y réfléchir un peu avant de regarder.</p>
+<pre class="code rust literal-block">
+<span class="comment preproc">#![feature(libc)]</span><span class="whitespace">
+
+</span><span class="keyword">extern</span><span class="whitespace"> </span><span class="keyword">crate</span><span class="whitespace"> </span><span class="name">libc</span><span class="punctuation">;</span><span class="whitespace">
+</span><span class="keyword namespace">use</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="punctuation">{</span><span class="name">c_char</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">c_ulong</span><span class="punctuation">};</span><span class="whitespace">
+
+</span><span class="comment preproc">#[repr(C)]</span><span class="whitespace">
+</span><span class="keyword">struct</span><span class="whitespace"> </span><span class="name">InputId</span><span class="whitespace">  </span><span class="punctuation">{</span><span class="whitespace">
+        </span><span class="name">bustype</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">vendor</span><span class="whitespace">  </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">product</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">version</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="keyword type">u16</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+
+</span><span class="keyword">fn</span><span class="whitespace"> </span><span class="name">main</span><span class="punctuation">()</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">st</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal string">&quot;/dev/input/event6&quot;</span><span class="punctuation">.</span><span class="name">to_string</span><span class="punctuation">();</span><span class="whitespace">
+    </span><span class="name">st</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="literal string char">'\0'</span><span class="punctuation">);</span><span class="whitespace">
+    </span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">pt</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">st</span><span class="punctuation">.</span><span class="name">as_ptr</span><span class="punctuation">()</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword reserved">const</span><span class="whitespace"> </span><span class="name">c_char</span><span class="punctuation">;</span><span class="whitespace">
+    </span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">fd</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="keyword">unsafe</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">open</span><span class="punctuation">(</span><span class="name">pt</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_RDONLY</span><span class="whitespace"> </span><span class="operator">|</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">O_NONBLOCK</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="punctuation">};</span><span class="whitespace">
+
+    </span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">ii</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">InputId</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+            </span><span class="name">bustype</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">,</span><span class="whitespace">
+            </span><span class="name">vendor</span><span class="whitespace">  </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">,</span><span class="whitespace">
+            </span><span class="name">product</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">,</span><span class="whitespace">
+            </span><span class="name">version</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="whitespace">
+    </span><span class="punctuation">};</span><span class="whitespace">
+
+    </span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">io</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="keyword">unsafe</span><span class="whitespace"> </span><span class="punctuation">{</span><span class="whitespace">
+        </span><span class="name">libc</span><span class="operator">::</span><span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="literal number hex">0x80084502</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="name">c_ulong</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="operator">&amp;</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">ii</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">_</span><span class="punctuation">)</span><span class="whitespace">
+    </span><span class="punctuation">};</span><span class="whitespace">
+
+    </span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;Input device ID: bus 0x{:x} vendor 0x{:x} product 0x{:x}&quot;</span><span class="punctuation">,</span><span class="whitespace">
+        </span><span class="name">ii</span><span class="punctuation">.</span><span class="name">bustype</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">ii</span><span class="punctuation">.</span><span class="name">vendor</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">ii</span><span class="punctuation">.</span><span class="name">product</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span>
+</pre>
+<hr class="docutils" />
+<p>Nous voilà rendus au bout de ce premier chapitre. Notre programme ne fait pas encore grand chose, et surtout, Rust ne doit pas vous sembler si différent de C, à part quelques règles de sécurité supplémentaires. Mais rassurez-vous, vous sentirez mieux la différence après avoir lu le prochain chapitre.</p>

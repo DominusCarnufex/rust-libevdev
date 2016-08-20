@@ -1,0 +1,14 @@
+name: libevdev-rs
+baseurl: "https://dominuscarnufex.github.io/rust-libevdev"
+
+collections:
+  chapitres:
+    output: true
+    permalink: /journal/:path
+
+defaults:
+  - scope:
+      path: ""
+      type: chapitres
+    values:
+      layout: article

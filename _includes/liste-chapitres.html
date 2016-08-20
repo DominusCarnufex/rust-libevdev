@@ -1,0 +1,6 @@
+<ul style="text-align: left;">
+{% for chapitre in site.chapitres %}
+  <li><a href="{{ site.baseurl }}/{{ chapitre.relative_path | replace: '_chapitres', 'journal' }}">
+    {{ chapitre.subtitle }}</a> <span class="datelist">{{ chapitre.pubdate }}</span></li>
+{% endfor %}
+</ul>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="language" content="fr">
+    <meta http-equiv="content-language" content="fr">
+    <title>&lsqb;libevdev-rs&rsqb; {{ page.navtitle }}</title>
+    <link rel="stylesheet" type="text/css" href="{{ site.baseurl }}/static/main.css">
+    <script type="text/javascript" src="{{ site.baseurl }}/static/main.js"></script>
+  </head>
+  <body>
+    <nav id="top">
+      <ul>
+        <li><a href="{{ site.baseurl }}/">Accueil</a></li>
+        <li><a href="{{ site.baseurl }}/docs">Documentation</a></li>
+        <li><a href="{{ site.baseurl }}/journal">Journal</a></li>
+      </ul>
+    </nav>
+
+    <header>
+      <div id="header-insides">
+        <h1>{% if page.maintitle %}{{ page.maintitle }}{% else %}{{ layout.maintitle }}{% endif %}</h1>
+        <h2>{{ page.subtitle }}</h2>
+
+        <section id="downloads">
+          {% if page.hasdl != false %}
+          <a href="https://github.com/DominusCarnufex/testingpages/zipball/{{ page.branch }}"
+            class="btn" id="btn1">Télécharger en .zip</a>
+          <a href="https://github.com/DominusCarnufex/testingpages/tarball/{{ page.branch }}"
+            class="btn" id="btn2">Télécharger en .tar.gz</a>
+          {% endif %}
+          <a href="{{ page.btnlink | replace: '!BASE_URL!', site.baseurl }}" class="btn" id="btn3">Source 
+            {% if page.btn %}{{ page.btn }}{% else %}{{ layout.btn }}{% endif %}</a>
+        </section>
+      </div>
+    </header>
+
+    <nav id="side">
+
+      {% if page.sidebar %}
+        {% include {{ page.sidebar }} %}
+      {% elsif layout.sidebar %}
+        {% include {{ layout.sidebar }} %}
+      {% endif %}
+
+    </nav>
+
+    <div id="document">
+      <div id="toggleserif">
+        <span class="btn" id="btnserif" onclick="toggle_serif()">Police à empattements</span>
+      </div>
+      
+      {{ content }}
+      
+    </div><!-- End of “document” div. -->
+
+    <footer>
+      <a href="{{ site.baseurl }}/index.html#mentions-legales">Mentions légales</a>
+    </footer>
+  </body>
+</html>

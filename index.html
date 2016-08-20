@@ -1,0 +1,44 @@
+---
+layout: default
+maintitle: Rust libevdev
+subtitle: Page d’accueil
+navtitle: Page d’accueil
+branch: master
+btn: de la page
+btnlink: "!BASE_URL!/accueil.rst"
+---
+
+<p>Le module <strong>evdev</strong>, abréviation de <em>event device</em>, est un morceau du noyau Linux. Il prend en charge les «&nbsp;entrées&nbsp;» de manière générale, même si son champ exact est un peu flou. Il gère les claviers, les souris, les <em>joysticks</em>, les tablettes graphiques, les écrans tactiles et même le fait que le bouton d’allumage de l’ordinateur ait été enfoncé. En revanche, il ne s’occupe pas des caméras, des micros, ou des entrées des périphériques réseau.</p>
+<p>Si un programme a besoin de communiquer avec un de ces périphériques — par exemple, un jeu vidéo dirigé au <em>joystick</em> — la personne qui le développe utilisera généralement la bibliothèque <strong>libevdev</strong>, ou un autre programme qui utilise lui-même libevdev. Comme la quasi-totalité des bibliothèques système, elle est écrite en C.</p>
+<p>Le projet Rust libevdev a pour but de réécrire cette bibliothèque en Rust. L’idée n’est bien évidemment pas de calquer le code C et son fonctionnement exact, mais d’écrire une bibliothèque qui joue le même rôle que libevdev, tout en offrant une API plus sûre et plus pratique que l’actuelle, voire ayant un fonctionnement globalement plus sécurisé.</p>
+<p>Par ailleurs, cela constitue une bonne occasion de faire découvrir Rust à ceux qui ne le connaîtraient pas encore. En particulier, de montrer aux amateurs de programmation système que Rust est un concurrent sérieux pour C et C++. C’est pourquoi, tout au long du développement, j’écrirai une série d’article visant à enseigner Rust à ceux qui connaissent déjà C et s’intéressent à la programmation système.</p>
+<p>L’introduction de ce «&nbsp;journal de développement&nbsp;» se trouve <a class="reference external" href="{{site.baseurl}}/journal">ici</a>, et voici la liste des chapitres déjà écrits.</p>
+
+{% include liste-chapitres.html %}
+
+<p>À chaque chapitre du journal est associée une branche du dépot GitHub, appelée <code>chapitreN</code>, contenant l’état du code complet à l’issue de ce chapitre. Vous pouvez la télécharger à l’aide des boutons situés en haut de chaque chapitre. La branche <code>master</code>, quant à elle, contient la dernière version en date.</p>
+<div class="important">
+<p class="first admonition-title"></p>
+<p class="last">Le lien vers la documentation situé en haut à droite ne fonctionne pas encore, le code n’étant pas assez avancé pour justifier d’être documenté.</p>
+</div>
+<h1 id="contribuer">Contribuer</h1>
+<p>Dans la mesure où le développement suit la logique du journal de bord, qui a lui-même une visée pédagogique, proposer des fonctionnalités supplémentaires ou une méthode plus efficace de coder un passage donné n’est sans doute pas pertinent. N’hésitez cependant pas à faire des retours, par le biais des <em>issues</em> de GitHub ou de l’adresse de contact située plus bas, dans un des cas suivants.</p>
+<ul class="simple">
+<li>Le code proposé ne compile pas, où bien ne donne pas le résultat attendu.</li>
+<li>Il y a une faute d’orthographe ou de typographie dans le texte ou quelque part sur le site.</li>
+<li>Vous avez une suggestion pertinente pour la suite du journal et vous êtes d’avis que je n’y ai certainement pas pensé.</li>
+<li>Vous ne comprenez pas un passage du journal et avez besoin d’explications supplémentaires.</li>
+<li>Vous adorez mon travail et voulez connaître mon numéro de compte en Suisse pour me faire un virement non imposable.</li>
+</ul>
+<p>Par ailleurs, il n’y a aucune raison que seuls les francophones puissent découvrir la puissance de Rust en programmation système. Par conséquent, vous pouvez proposer des traductions dans d’autres langues, aussi bien du site que du journal (et de la documentation quand elle existera).</p>
+<p>Pour cela, vous pouvez télécharger la source de chaque page à l’aide du bouton situé en haut de celle-ci, et la modifier à votre convenance. Elle utilise une version légèrement modifiée de <a class="reference external" href="https://aful.org/wikis/interop/ReStructuredText">ReStructuredText</a> : ne vous étonnez donc pas si le rendu n’est pas le même chez vous que sur le site.</p>
+<h1 id="mentions-legales">Mentions légales</h1>
+<ul class="simple">
+<li>Le code de la bibliothèque est diffusé sous <a class="reference external" href="http://www.cecill.info/licences/Licence_CeCILL-B_V1-fr.html">licence CeCIll-B version 1</a>. Pour ceux qui ne connaîtraient pas, il s’agit d’une licence similaire à la licence MIT.</li>
+<li>Les textes du site et le journal de bord sont diffusés sous licence <a class="reference external" href="http://www.teladiai.re/public/licences/BiPu_L.pdf">BiPu L</a>. Il s’agit d’une licence proche d’une licence Creative Commons BY-NC-SA.</li>
+<li>La documentation, lorsqu’elle existera, sera diffusée sous licence <a class="reference external" href="http://www.teladiai.re/public/licences/BiPu.pdf">Bien Public</a>. Cela est aussi proche du domaine public que la législation française le permet.</li>
+<li>Le thème du site est largement inspiré du thème «&nbsp;Hack&nbsp;» de GitHub Pages, statut légal inconnu.</li>
+<li>Le thème de coloration syntaxique est un clone du thème «&nbsp;Cobalt&nbsp;» de GtkSourceView, adapté à un fond noir.</li>
+<li>Les icônes des boites spéciales — comme le bloc «&nbsp;Important&nbsp;» ci-dessus — sont piquées à <a class="reference external" href="https://zestedesavoir.com/">Zeste de Savoir</a>.</li>
+</ul>
+<p>Pour me contacter si vous n’avez pas de compte GitHub ou si vous ne souhaitez pas l’utiliser, vous pouvez m’écrire à l’adresse <code>dοmіnuѕ.саrnufеx&#64;tеlаdіаі.rе</code>. Attention ! Ne faites pas de copier-coller : j’utilise une <a class="reference external" href="http://altf4.teladiai.re/index.php?post/23">technique de fourbe</a> pour tromper les robots, et l’adresse ne fonctionnera pas si vous ne la tapez pas vous-même.</p>
