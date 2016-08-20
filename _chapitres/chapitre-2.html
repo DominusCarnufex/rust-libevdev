@@ -361,7 +361,7 @@ error[E0382]: use of moved value: `p1.y`</span>
 <p>Il reste une dernière chose à faire, et l’on pourra s’arrêter là : toutes les valeurs de requête ne donnent pas un IOCTL valide, ce serait plus sécurisé si la fonction n’acceptait que des requêtes valides en argument. Cela est possible en définition une <strong>énumération</strong>, qui ne contiendra donc que les valeurs autorisées.</p>
 <p>Pour l’instant, on va se contenter d’une énumération basique, qui suit la syntaxe suivante.</p>
 <pre class="code rust literal-block">
-<span class="keyword">enum</span><span class="whitespace"> </span><span class="operator">&lt;</span><span class="name">identifiant</span><span class="whitespace"> </span><span class="name">du</span><span class="whitespace"> </span><span class="keyword">type</span><span class="operator">&gt;</span><span class="whitespace">  </span><span class="punctuation">{</span><span class="whitespace">
+<span class="keyword">enum</span><span class="whitespace"> </span><span class="ajout">&lt;identifiant du type&gt;</span><span class="whitespace">  </span><span class="punctuation">{</span><span class="whitespace">
     </span><span class="ajout">&lt;variante 1&gt;</span><span class="punctuation">,</span><span class="whitespace">
     </span><span class="ajout">&lt;variante 2&gt;</span><span class="punctuation">,</span><span class="whitespace">
     </span><span class="ajout">&lt;variante 3&gt;</span><span class="punctuation">,</span><span class="whitespace">
