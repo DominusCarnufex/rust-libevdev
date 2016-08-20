@@ -24,9 +24,9 @@
 
         <section id="downloads">
           {% if page.hasdl != false %}
-          <a href="https://github.com/DominusCarnufex/testingpages/zipball/{{ page.branch }}"
+          <a href="{{ site.githuburl }}/zipball/{{ page.branch }}"
             class="btn" id="btn1">Télécharger en .zip</a>
-          <a href="https://github.com/DominusCarnufex/testingpages/tarball/{{ page.branch }}"
+          <a href="{{ site.githuburl }}/tarball/{{ page.branch }}"
             class="btn" id="btn2">Télécharger en .tar.gz</a>
           {% endif %}
           <a href="{{ page.btnlink | replace: '!BASE_URL!', site.baseurl }}" class="btn" id="btn3">Source 

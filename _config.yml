@@ -1,5 +1,6 @@
 name: libevdev-rs
 baseurl: "https://dominuscarnufex.github.io/rust-libevdev"
+githuburl: "https://github.com/DominusCarnufex/rust-libevdev"
 
 collections:
   chapitres:
