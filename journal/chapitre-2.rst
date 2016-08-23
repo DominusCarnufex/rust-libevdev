@@ -369,7 +369,22 @@ Pour terminer en douceur par un petit exercice, vous allez écrire une fonction 
 La protection de nos valeurs
 ============================
 
-Pour terminer ce chapitre, nous allons améliorer le fonctionnement de l’appel à IOCTL. Il faut savoir que libdrm définit en son sein une version mieux conçue de ``ioctl``, implémentée comme suit.
+Pour terminer ce chapitre, nous allons améliorer le fonctionnement de l’appel à IOCTL. Pour rappel, voici comment il est codé pour l’instant.
+
+.. code:: rust
+
+    let mut ii = InputId    {
+	    bustype : 0,
+	    vendor  : 0,
+	    product : 0,
+	    version : 0
+    };
+
+    let io = unsafe {
+        libc::ioctl(fd, 0x80084502 as c_ulong, &mut ii as *mut _)
+    };
+
+Il faut savoir que libdrm définit en son sein une version mieux conçue de ``ioctl``, implémentée comme suit.
 
 .. code:: c
 
@@ -435,7 +450,7 @@ Et l’appel dans ``main`` se résume à cette ligne.
 
     let _ = ioctl(fd, 0x80084502, &mut ii as *mut _ as *mut u8);
 
-Convertir directement une référence vers un pointeur nu sur un autre type n’est pas autorisé, il faut passer par un pointeur nu non typé intermédiaire. En outre, lier le résultat d’une fonction à ``_`` permet de s’en débarrasser sans que rustc ne râle.
+Convertir directement une référence vers un pointeur nu sur un autre type n’est pas autorisé : il faut passer par un pointeur nu non typé intermédiaire, car les conversions entre n’importe quels types de pointeurs nus sont autorisées, par contre. En outre, lier le résultat d’une fonction à ``_`` permet de s’en débarrasser sans que rustc ne râle.
 
 Il reste une dernière chose à faire, et l’on pourra s’arrêter là : toutes les valeurs de requête ne donnent pas un IOCTL valide, ce serait plus sécurisé si la fonction n’acceptait que des requêtes valides en argument. Cela est possible en définissant une **énumération**, qui ne contiendra donc que les valeurs autorisées.
 
