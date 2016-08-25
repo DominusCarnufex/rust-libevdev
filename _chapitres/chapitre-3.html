@@ -1,0 +1,447 @@
+---
+subtitle: Chapitre 3 &mdash; Des codes d’événement en pagaille
+navtitle: Chapitre 3 &mdash; Des codes d’événement en pagaille
+branch: chapitre3
+btnlink: "!BASE_URL!/journal/chapitre-3.rst"
+pubdate: 25 août 2016
+---
+
+<p>Dans ce troisième chapitre, nous allons recommencer à ajouter de nouvelles fonctionnalités à notre programme, afin de nous rapprocher du code d’exemple en C qui nous sert de base. Pour cela, on limitera au maximum les nouvelles connaissances en Rust, afin de réellement nous concentrer sur notre mission.</p>
+<div class="contents topic" id="sommaire">
+<p class="topic-title first">Sommaire</p>
+<ul class="simple">
+<li><a class="reference internal" href="#remise-en-forme" id="id1">Remise en forme</a></li>
+<li><a class="reference internal" href="#comprendre" id="id2">Comprendre</a></li>
+<li><a class="reference internal" href="#imiter" id="id3">Imiter</a></li>
+</ul>
+</div>
+<h1 id="remise-en-forme">Remise en forme</h1>
+<p>Afin de se remettre en train pour la prochaine étape qui va demander pas mal d’exploration du code C, vous allez faire un petit exercice d’application. Votre mission : coder un équivalent Rust de la fonction <code>libevdev_get_driver_version</code> qui se trouve dans le fichier <code>libevdev.c</code>.</p>
+<p>La marche à suivre est quasiment identique à celle que nous avons employée dans le chapitre 1 pour les fonctions <code>libevdev_get_id_*</code>. N’hésitez donc pas à vous en inspirer pour cet exercice. Quand vous avez terminé, vous pouvez regarder la correction succincte ci-dessous.</p>
+<p>C’est bon ?</p>
+<p>La fonction <code>libevdev_get_driver_version</code> se contente de renvoyer le champ <code>driver_version</code> de la grosse structure <code>struct libevdev</code>. Dans le fichier <code>libevdev-int.h</code>, on voit que ce champ est de type <code>int</code>, et dans la fonction <code>libevdev_set_fd</code>, ce champ est rempli grâce à l’IOCTL <code>EVIOCGVERSION</code> qui vaut <code>0x80044501</code>.</p>
+<p>Pour porter tout cela en Rust, il faut commencer par créer une nouvelle variante à l’énumération <code>IOCTL</code>, que l’on appellera <code>GetVersion</code> et qui aura pour valeur <code>0x80044501</code>. Ensuite, le code est quasiment identique à celui des trois fonctions déjà implémentées.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">vers</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">c_int</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">;</span><span class="whitespace">
+
+</span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">_</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">IOCTL</span><span class="operator">::</span><span class="name">GetVersion</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="operator">&amp;</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">vers</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">_</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="keyword type">u8</span><span class="punctuation">);</span><span class="whitespace">
+
+</span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;Version = 0x{:x}&quot;</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">vers</span><span class="punctuation">);</span>
+</pre>
+<p>À l’exécution (avec les droits d’administrateur, n’oubliez pas !), on obtient le résultat suivant.</p>
+<pre class="code console literal-block">
+<span class="generic output">Version = 0x10001</span>
+</pre>
+<p>Un peu étrange comme numéro de version, jusqu’à ce qu’on comprenne qu’il s’agit en fait de <code>01.00.01</code>, chaque octet contenant un des éléments de la version, selon le modèle <code>majeure.mineure.patch</code>. On va donc afficher cela sous une forme plus lisible.</p>
+<pre class="code rust literal-block">
+<span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;Version = {}.{}.{}&quot;</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">vers</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number integer">16</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number hex">0x100</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">vers</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number integer">8</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number hex">0x100</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">vers</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number hex">0x100</span><span class="punctuation">);</span>
+</pre>
+<p>Comme vous le voyez, les opérateurs mathématiques et de manipulation bit-à-bit sont les mêmes qu’en C.</p>
+<h1 id="comprendre">Comprendre</h1>
+<p>On va maintenant passer aux choses sérieuses, et tenter d’implémenter en Rust les fonctions <code>libevdev_has_event_type</code> et <code>libevdev_has_event_code</code>. Pour cela, il faut déjà comprendre comment elles fonctionnent, et elles sont sensiblement plus complexes que les fonctions avec lesquelles on a travaillé pour l’instant. Alors commençons par leur code source, qui se trouve dans <code>libevdev.c</code>.</p>
+<pre class="code c literal-block">
+<span class="name">LIBEVDEV_EXPORT</span> <span class="keyword type">int</span>
+<span class="name function">libevdev_has_event_type</span><span class="punctuation">(</span><span class="keyword">const</span> <span class="keyword">struct</span> <span class="name">libevdev</span> <span class="operator">*</span><span class="name">dev</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">type</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword">return</span> <span class="name">type</span> <span class="operator">==</span> <span class="name">EV_SYN</span> <span class="operator">||</span><span class="punctuation">(</span><span class="name">type</span> <span class="operator">&lt;=</span> <span class="name">EV_MAX</span> <span class="operator">&amp;&amp;</span> <span class="name">bit_is_set</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">bits</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">));</span>
+<span class="punctuation">}</span>
+
+<span class="name">LIBEVDEV_EXPORT</span> <span class="keyword type">int</span>
+<span class="name function">libevdev_has_event_code</span><span class="punctuation">(</span><span class="keyword">const</span> <span class="keyword">struct</span> <span class="name">libevdev</span> <span class="operator">*</span><span class="name">dev</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">type</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">code</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword">const</span> <span class="keyword type">unsigned</span> <span class="keyword type">long</span> <span class="operator">*</span><span class="name">mask</span> <span class="operator">=</span> <span class="name builtin">NULL</span><span class="punctuation">;</span>
+    <span class="keyword type">int</span> <span class="name">max</span><span class="punctuation">;</span>
+
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="operator">!</span><span class="name">libevdev_has_event_type</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">))</span>
+        <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">type</span> <span class="operator">==</span> <span class="name">EV_SYN</span><span class="punctuation">)</span>
+        <span class="keyword">return</span> <span class="literal number integer">1</span><span class="punctuation">;</span>
+
+    <span class="name">max</span> <span class="operator">=</span> <span class="name">type_to_mask_const</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">,</span> <span class="operator">&amp;</span><span class="name">mask</span><span class="punctuation">);</span>
+
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">max</span> <span class="operator">==</span> <span class="operator">-</span><span class="literal number integer">1</span> <span class="operator">||</span> <span class="name">code</span> <span class="operator">&gt;</span> <span class="punctuation">(</span><span class="keyword type">unsigned</span> <span class="keyword type">int</span><span class="punctuation">)</span><span class="name">max</span><span class="punctuation">)</span>
+        <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+
+    <span class="keyword">return</span> <span class="name">bit_is_set</span><span class="punctuation">(</span><span class="name">mask</span><span class="punctuation">,</span> <span class="name">code</span><span class="punctuation">);</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Intéressons-nous d’abord à <code>libevdev_has_event_type</code> qui est visiblement plus simple. Elle prend comme argument le pointeur sur la <code>struct libevdev</code>, rien d’étonnant là-dedans, et un <code>unsigned int</code> représentant le type d’événements dont on veut savoir si le périphérique peut en envoyer.</p>
+<p>Si le type d’événements est <code>EV_SYN</code>, la fonction renvoie «&nbsp;vrai&nbsp;». Sinon, elle vérifie que le type d’événements soit inférieur à une valeur <code>EV_MAX</code>, puis appelle une fonction <code>bit_is_set</code> sur le champ <code>bits</code> de la <code>struct libevdev</code> et le type d’événements. Partons donc à la recherche de ces différents éléments. Dans <code>include/linux/input-event-codes.h</code>, on trouve ceci.</p>
+<pre class="code c literal-block">
+<span class="comment multiline">/*
+ * Event types
+ */</span>
+
+<span class="comment preproc">#define EV_SYN          0x00
+#define EV_KEY          0x01
+#define EV_REL          0x02
+#define EV_ABS          0x03
+#define EV_MSC          0x04
+#define EV_SW           0x05
+#define EV_LED          0x11
+#define EV_SND          0x12
+#define EV_REP          0x14
+#define EV_FF           0x15
+#define EV_PWR          0x16
+#define EV_FF_STATUS    0x17
+#define EV_MAX          0x1f
+#define EV_CNT          (EV_MAX+1)</span>
+</pre>
+<p>Nous avons donc la liste complète des types d’événements, ainsi que la valeur de <code>EV_MAX</code> qui, sans surprise, représente la valeur maximale autorisée du type d’événements. Quant à <code>bit_is_set</code>, elle est définie dans <code>libevdev-util.h</code>.</p>
+<pre class="code c literal-block">
+<span class="keyword">static</span> <span class="keyword reserved">inline</span> <span class="keyword type">int</span>
+<span class="name function">bit_is_set</span><span class="punctuation">(</span><span class="keyword">const</span> <span class="keyword type">unsigned</span> <span class="keyword type">long</span> <span class="operator">*</span><span class="name">array</span><span class="punctuation">,</span> <span class="keyword type">int</span> <span class="name">bit</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword">return</span> <span class="operator">!!</span><span class="punctuation">(</span><span class="name">array</span><span class="punctuation">[</span><span class="name">bit</span> <span class="operator">/</span> <span class="name">LONG_BITS</span><span class="punctuation">]</span> <span class="operator">&amp;</span> <span class="punctuation">(</span><span class="literal number integer">1LL</span> <span class="operator">&lt;&lt;</span> <span class="punctuation">(</span><span class="name">bit</span> <span class="operator">%</span> <span class="name">LONG_BITS</span><span class="punctuation">)));</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Sur le coup, ce n’est vraiment pas clair, alors allons chercher la définition du champ <code>bits</code>, et c’est ceci.</p>
+<pre class="code c literal-block">
+<span class="keyword type">unsigned</span> <span class="keyword type">long</span> <span class="name">bits</span><span class="punctuation">[</span><span class="name">NLONGS</span><span class="punctuation">(</span><span class="name">EV_CNT</span><span class="punctuation">)];</span>
+</pre>
+<p>On retrouve <code>EV_CNT</code> que nous avons découvert quelques lignes plus haut, et l’on peut compléter avec les lignes suivantes tirées de <code>libevdev-util.h</code>.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#define LONG_BITS (sizeof(long) * 8)
+#define NLONGS(x) (((x) + LONG_BITS - 1) / LONG_BITS)</span>
+</pre>
+<p>Avec toutes ces informations en main, à votre avis, que se passe-t-il dans tout ce bazar ? Réfléchissez-y un peu, puis continuez à lire.</p>
+<p>En C, il n’existe pas à proprement parler de type booléen : une valeur de 0 dans un type numérique ou de pointeur vaut «&nbsp;faux&nbsp;», et toute autre valeur vaut «&nbsp;vrai&nbsp;». Par conséquent, si on a 32 valeurs possibles de type d’événements, utiliser ne serait-ce qu’un <code>char</code> pour chaque type d’événement prend 32 octets en mémoire. Tandis qu’une représentation sous forme de champ de bits (<em>bitfield</em>) permet de stocker la même information dans seulement 4 octets.</p>
+<p>C’est ce qui se passe ici : le champ <code>bits</code> est un tableau de <code>unsigned long</code> comportant le nombre de <code>unsigned long</code> nécessaires pour représenter <code>EV_CNT</code> bits. Et <code>bit_is_set</code> vérifie si le <code>i</code>-ème bit vaut 0 ou 1.</p>
+<p>Pourquoi une définition si compliquée du champ <code>bits</code> ? Parce que si vous regardez la définition de la <code>struct libevdev</code>, vous verrez que les champs <code>key_bits</code>, <code>rel_bits</code>, <code>abs_bits</code>, etc. (un pour chaque type d’événements, en gros) fonctionnent sur le même modèle.</p>
+<p>Et autant, avec un maximum de 32 types d’événements, on est certain que cela tienne dans un seul <code>unsigned long</code> (qui font au mininum 32 bits, d’après le standard C), autant d’autres champs peuvent avoir plus de valeurs possibles : en l’occurrence, si vous parcourez <code>include/linux/input-event-codes.h</code>, vous verrez que cela ne concerne que <code>key_bits</code> et <code>abs_bits</code>.</p>
+<p>Revenons à <code>libevdev_has_event_code</code>. La structure générale est la même, à ceci près qu’elle prend un code d’événement en plus du type d’événement. Si le périphérique ne possède pas le type d’événements demandé, la fonction renvoie «&nbsp;faux&nbsp;», si le type demandé est <code>EV_SYN</code>, elle renvoie «&nbsp;vrai&nbsp;» quel que soit le code d’événement. Vient la ligne suivante, que l’on expliquera un peu plus loin.</p>
+<pre class="code c literal-block">
+<span class="name">max</span> <span class="operator">=</span> <span class="name">type_to_mask_const</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">,</span> <span class="operator">&amp;</span><span class="name">mask</span><span class="punctuation">);</span>
+</pre>
+<p>Si cette fonction a échoué (<code>max</code> vaut <code>-1</code>) ou si le code demandé est supérieur à <code>max</code>, la fonction renvoie «&nbsp;faux&nbsp;». Sinon, elle utilise <code>bit_is_set</code> sur <code>mask</code> et le code demandé, de la même manière que ce qu’on a vu plus haut.</p>
+<p>Alors que fait-elle cette fonction <code>type_to_mask_const</code> ? Elle est définie comme suit dans <code>libevdev-int.h</code>, avec la macro nécessaire à sa bonne compréhension en bonus.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#define max_mask(uc, lc) \
+    case EV_##uc: \
+            *mask = dev-&gt;lc##_bits; \
+            max = libevdev_event_type_get_max(type); \
+            break;
+</span>
+<span class="keyword">static</span> <span class="keyword reserved">inline</span> <span class="keyword type">int</span>
+<span class="name function">type_to_mask_const</span><span class="punctuation">(</span><span class="keyword">const</span> <span class="keyword">struct</span> <span class="name">libevdev</span> <span class="operator">*</span><span class="name">dev</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">type</span><span class="punctuation">,</span> <span class="keyword">const</span> <span class="keyword type">unsigned</span> <span class="keyword type">long</span> <span class="operator">**</span><span class="name">mask</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword type">int</span> <span class="name">max</span><span class="punctuation">;</span>
+
+    <span class="keyword">switch</span><span class="punctuation">(</span><span class="name">type</span><span class="punctuation">)</span> <span class="punctuation">{</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">ABS</span><span class="punctuation">,</span> <span class="name">abs</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">REL</span><span class="punctuation">,</span> <span class="name">rel</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">KEY</span><span class="punctuation">,</span> <span class="name">key</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">LED</span><span class="punctuation">,</span> <span class="name">led</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">MSC</span><span class="punctuation">,</span> <span class="name">msc</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">SW</span><span class="punctuation">,</span> <span class="name">sw</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">FF</span><span class="punctuation">,</span> <span class="name">ff</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">REP</span><span class="punctuation">,</span> <span class="name">rep</span><span class="punctuation">);</span>
+        <span class="name">max_mask</span><span class="punctuation">(</span><span class="name">SND</span><span class="punctuation">,</span> <span class="name">snd</span><span class="punctuation">);</span>
+        <span class="keyword">default</span><span class="operator">:</span>
+             <span class="name">max</span> <span class="operator">=</span> <span class="operator">-</span><span class="literal number integer">1</span><span class="punctuation">;</span>
+             <span class="keyword">break</span><span class="punctuation">;</span>
+    <span class="punctuation">}</span>
+
+    <span class="keyword">return</span> <span class="name">max</span><span class="punctuation">;</span>
+<span class="punctuation">}</span>
+</pre>
+<p>En résumé, pour un type d’événements <code>EV_ABS</code>, mask renvoie le champ <code>abs_bits</code> de la <code>struct libevdev</code>, pour <code>EV_REL</code>, c’est <code>rel_bits</code>, etc. Quant à <code>max</code>, c’est la fonction <code>libevdev_event_type_get_max</code> qui le définit, et cette fonction se trouve dans <code>libevdev.c</code>.</p>
+<pre class="code c literal-block">
+<span class="name">LIBEVDEV_EXPORT</span> <span class="keyword type">int</span>
+<span class="name function">libevdev_event_type_get_max</span><span class="punctuation">(</span><span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">type</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">type</span> <span class="operator">&gt;</span> <span class="name">EV_MAX</span><span class="punctuation">)</span>
+        <span class="keyword">return</span> <span class="operator">-</span><span class="literal number integer">1</span><span class="punctuation">;</span>
+
+    <span class="keyword">return</span> <span class="name">ev_max</span><span class="punctuation">[</span><span class="name">type</span><span class="punctuation">];</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Après une nouvelle vérification que le type d’événements ne dépasse pas le maximum autorisé, on renvoie le champ correspondant au type dans <code>ev_max</code>. Je vous épargne cette dernière étape, car cette variable se trouve dans un code source qui est généré par un script Python à la compilation de libevdev : c’est juste un tableau contenant toutes les valeurs <code>*_MAX</code> de <code>include/linux/input-event-codes.h</code>.</p>
+<p>Pfiou ! On est enfin arrivé au bout. Tracer le fonctionnement d’une fonction est souvent un véritable jeu de piste comme celui que nous venons de faire. Et il reste un dernier petit bout de chemin à faire : comme les champs <code>*_bits</code> sont-ils remplis en premier lieu ?</p>
+<p>C’est naturellement du côté de <code>libevdev_set_fd</code> qu’il faut se tourner, et on y trouve les lignes suivantes.</p>
+<pre class="code c literal-block">
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="literal number integer">0</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="comment single">// Pour la liste de types d’événements.
+</span>
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_REL</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">rel_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">rel_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_ABS</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">abs_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">abs_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_LED</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">led_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">led_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_KEY</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">key_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">key_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_SW</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">sw_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">sw_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_MSC</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">msc_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">msc_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_FF</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">ff_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">ff_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+
+<span class="name">rc</span> <span class="operator">=</span> <span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="name">EV_SND</span><span class="punctuation">,</span> <span class="keyword">sizeof</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">snd_bits</span><span class="punctuation">)),</span> <span class="name">dev</span><span class="operator">-&gt;</span><span class="name">snd_bits</span><span class="punctuation">);</span>
+<span class="keyword">if</span> <span class="punctuation">(</span><span class="name">rc</span> <span class="operator">&lt;</span> <span class="literal number integer">0</span><span class="punctuation">)</span>
+    <span class="keyword">goto</span> <span class="name">out</span><span class="punctuation">;</span>
+</pre>
+<p>On a là un cas d’IOCTL un peu plus complexe que la dernière fois. En effet, c’est toujours la même macro <code>EVIOCGBIT</code> qui est utilisée à tous les appels, mais cette fois, elle prend des paramètres. Voici comment elle est définie dans <code>include/linux/input.h</code>.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#define EVIOCGBIT(ev,len)    _IOC(_IOC_READ, 'E', 0x20 + (ev), len)</span>
+</pre>
+<p>On a donc une base <code>0x20</code> à laquelle s’ajoute le code du type d’événements, et la longueur du tableau de <code>unsigned long</code> est prise en compte aussi. On va donc ressortir du placard notre code C servant à trouver la valeur des IOCTL.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#include</span> <span class="comment preprocfile">&lt;stdio.h&gt;</span><span class="comment preproc">
+#include</span> <span class="comment preprocfile">&lt;sys/ioctl.h&gt;</span><span class="comment preproc">
+</span>
+<span class="comment preproc">#define EVIOCGBIT(ev,len)    _IOC(_IOC_READ, 'E', 0x20 + (ev), len)
+</span>
+<span class="keyword type">int</span> <span class="name function">main</span><span class="punctuation">()</span>  <span class="punctuation">{</span>
+    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;EVIOCGBIT(0, 0) = 0x%x</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="literal number integer">0</span><span class="punctuation">,</span> <span class="literal number integer">0</span><span class="punctuation">));</span>
+    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;EVIOCGBIT(1, 0) = 0x%x</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="literal number integer">1</span><span class="punctuation">,</span> <span class="literal number integer">0</span><span class="punctuation">));</span> <span class="comment single">// EV_KEY
+</span>    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;EVIOCGBIT(0, 4) = 0x%x</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="literal number integer">0</span><span class="punctuation">,</span> <span class="literal number integer">4</span><span class="punctuation">));</span> <span class="comment single">// long = 32 bits
+</span>    <span class="name">printf</span><span class="punctuation">(</span><span class="literal string">&quot;EVIOCGBIT(0, 8) = 0x%x</span><span class="literal string escape">\n</span><span class="literal string">&quot;</span><span class="punctuation">,</span> <span class="name">EVIOCGBIT</span><span class="punctuation">(</span><span class="literal number integer">0</span><span class="punctuation">,</span> <span class="literal number integer">8</span><span class="punctuation">));</span> <span class="comment single">// long = 64 bits
+</span>
+    <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Ce qui nous donne le résultat suivant.</p>
+<pre class="code console literal-block">
+<span class="generic output">EVIOCGBIT(0, 0) = 0x80004520
+EVIOCGBIT(1, 0) = 0x80004521
+EVIOCGBIT(0, 4) = 0x80044520
+EVIOCGBIT(0, 8) = 0x80084520</span>
+</pre>
+<p>Ce qui nous permet donc de dire que l’IOCTL pour obtenir la liste des types d’événements disponibles est <code>0x80044520</code> si les <code>long</code> font 4 octets de long sur votre plateforme et <code>0x80084520</code> s’ils en font 8. Quant à <code>key_bits</code>, la valeur de <code>KEY_CNT</code> est <code>0x300</code>, ce qui est un multiple de 8 : il faudra donc toujours 0x60 octets, quelle que soit la longueur des <code>long</code>. Soit un IOCTL de <code>0x80604521</code>.</p>
+<div class="note">
+<p class="first admonition-title"></p>
+<p class="last">Sur ma machine, les <code>long</code> font 64 bits. J’utiliserai donc désormais les valeurs correspondantes, à vous d’adapter si vous <code>long</code> font 32 bits.</p>
+</div>
+<h1 id="imiter">Imiter</h1>
+<p>Il est maintenant temps d’adapter tout cela aux outils que nous offre Rust. La première chose à faire est naturellement d’ajouter deux variantes <code>GetBits</code> et <code>GetKeyBits</code> au type <code>IOCTL</code>. Ensuite, on va commencer par adapter <code>libevdev_has_event_type</code>, puisqu’elle est plus simple, et que l’autre fonction s’appuie dessus.</p>
+<p>Une chose apparaît clairement : le besoin de vérifier que l’argument <code>type</code> est en-dessous d’un certain maximum naît du fait que c’est un <code>unsigned int</code> qui est passé à la fonction. Avec un type dédié comme ce que l’on a fait pour l’IOCTL, on a la garantie que seules les valeurs légales pourront être utilisées.</p>
+<p>Créons donc un type <code>EventType</code> servant à représenter un type d’événements. Pour rappel, voici la liste définie dans <code>include/linux/input-event-codes.h</code>.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#define EV_SYN          0x00
+#define EV_KEY          0x01
+#define EV_REL          0x02
+#define EV_ABS          0x03
+#define EV_MSC          0x04
+#define EV_SW           0x05
+#define EV_LED          0x11
+#define EV_SND          0x12
+#define EV_REP          0x14
+#define EV_FF           0x15
+#define EV_PWR          0x16
+#define EV_FF_STATUS    0x17</span>
+</pre>
+<p>Objectivement, les noms ne sont pas très parlants. En parcourant les commentaires délimitant des sections dans <code>include/linux/input-event-codes.h</code>, on trouve la signification de la plupart de ces abréviations. Voici donc le type que l’on va définir en Rust, avec la ligne <code>#[derive(Clone, Copy)]</code> pour ne pas s’embêter avec les histoires de propriété.</p>
+<pre class="code rust literal-block">
+<span class="comment preproc">#[derive(Clone, Copy)]</span><span class="whitespace">
+</span><span class="keyword">enum</span><span class="whitespace"> </span><span class="name">EventType</span><span class="whitespace">  </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">Synchro</span><span class="whitespace">       </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x00</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Key</span><span class="whitespace">           </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x01</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Relative</span><span class="whitespace">      </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x02</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Absolute</span><span class="whitespace">      </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x03</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Miscellaneous</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x04</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Switch</span><span class="whitespace">        </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x05</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">LED</span><span class="whitespace">           </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x11</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Sound</span><span class="whitespace">         </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x12</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">Repeat</span><span class="whitespace">        </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x14</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">FF</span><span class="whitespace">            </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x15</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="comment single">// Pas trouvé à quoi cela correspond.
+</span><span class="whitespace">    </span><span class="name">Power</span><span class="whitespace">         </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x16</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">FFStatus</span><span class="whitespace">      </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x17</span><span class="whitespace"> </span><span class="comment single">// Idem.
+</span><span class="punctuation">}</span>
+</pre>
+<p>Passons à présent à l’IOCTL. Le code est très similaire à ce qu’on a toujours fait.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="name">libc</span><span class="operator">::</span><span class="name">c_long</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number integer">0</span><span class="punctuation">;</span><span class="whitespace">
+
+</span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">_</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">IOCTL</span><span class="operator">::</span><span class="name">GetBits</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="operator">&amp;</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">bits</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">_</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="keyword type">u8</span><span class="punctuation">);</span><span class="whitespace">
+
+</span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;Bitfield = 0b{:b}&quot;</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">bits</span><span class="punctuation">);</span>
+</pre>
+<p>Notez le modificateur <code>:b</code> dans <code>println</code>, pour afficher un nombre en notation binaire, plutôt que hexadécimale. Voici le résultat obtenu chez moi pour ma souris (il peut naturellement être différent chez vous).</p>
+<pre class="code console literal-block">
+<span class="generic output">Bitfield = 0x10111</span>
+</pre>
+<p>Cela signifie que ma souris possède les types d’événements <code>Synchro</code>, <code>Key</code>, <code>Relative</code> et <code>Miscellaneous</code>.</p>
+<p>Maintenant, est-ce une bonne manière de conserver en mémoire la liste des types d’événements du périphérique, quand on code en Rust ? Non. C’est indubitablement le plus efficace en termes d’occupation mémoire, mais pas en termes de clarté du code ni de facilité d’utilisation.</p>
+<p>À la place, on va utiliser un vecteur. Pour ceux qui ne seraient pas familiers des conteneurs usuels de C++ et autres langages orientés objets, un vecteur est un tableau dont on ne connaît pas la taille au moment de la compilation, et dont le nombre d’éléments peut évoluer au cours du temps.</p>
+<p>En Rust, on crée un vecteur vide à l’aide de la fonction <code>Vec::new()</code>. Ne posez pas encore de question sur la syntaxe utilisée, on la verra dans le prochain chapitre. Ensuite de quoi, on lui ajoute des éléments à l’aide de la méthode <code>push(élément)</code>. Il est impératif que tous les éléments soient du même type, et que le vecteur soit mutable.</p>
+<p>Là où le vecteur va s’avérer très intéressant pour nous, c’est qu’il dispose d’une méthode <cite>contains(&amp;valeur)</cite>, qui vérifie si le vecteur contient la valeur passée en argument.</p>
+<div class="note">
+<p class="first admonition-title"></p>
+<p class="last">Cette fonction renvoie un type <code>bool</code>, qui est un type natif de Rust, et peut prendre les valeurs <code>true</code> et <code>false</code>.</p>
+</div>
+<p>Ne reste plus qu’à remplir un vecteur de <code>EventType</code>, en n’y mettant que ceux dont dispose le périphérique. La principale difficulté va être de convertir une valeur entière (le type tel que C le représente) en une valeur de type <code>EventType</code>. Voici donc le code complet.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">event_types</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name builtin">Vec</span><span class="operator">::</span><span class="name">new</span><span class="punctuation">();</span><span class="whitespace">
+
+</span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Synchro</span><span class="punctuation">);</span><span class="whitespace"> </span><span class="comment single">// Il doit nécessairement
+</span><span class="whitespace">                                      </span><span class="comment single">// être présent.
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x01</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Key</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x02</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Relative</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x03</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Absolute</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x04</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Miscellaneous</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x05</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Switch</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x11</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">LED</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x12</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Sound</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x14</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Repeat</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x15</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">FF</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x16</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Power</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">bits</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="literal number hex">0x17</span><span class="punctuation">)</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">   </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventType</span><span class="operator">::</span><span class="name">FFStatus</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+
+</span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;libevdev_has_event_type(dev, EV_REL) = {}&quot;</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">contains</span><span class="punctuation">(</span><span class="operator">&amp;</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Relative</span><span class="punctuation">));</span><span class="whitespace">
+</span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;libevdev_has_event_type(dev, EV_KEY) = {}&quot;</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">event_types</span><span class="punctuation">.</span><span class="name">contains</span><span class="punctuation">(</span><span class="operator">&amp;</span><span class="name">EventType</span><span class="operator">::</span><span class="name">Key</span><span class="punctuation">));</span>
+</pre>
+<p>C’est très laid, on en conviendra. Il est possible de faire cela de manière beaucoup plus élégante, mais là encore, cela attendra le prochain chapitre : on cherche ici à imiter les fonctions C, avec le moins possibles d’outils nouveaux.</p>
+<p>Mais surtout, cela ne compile pas. Le message d’erreur ne vous parlera certainement pas, et il est trop tôt encore pour l’expliquer. La version simple, c’est que le type <code>EventType</code> n’est pas prévu pour fonctionner avec l’opérateur <code>==</code>, lequel est indispensable au fonctionnement de la méthode <code>contains</code>. On va prendre un chemin de contournement : ôtez la ligne juste au-dessus de la définition du type <code>EventType</code>, et remplacez-la par celle-ci.</p>
+<pre class="code rust literal-block">
+<span class="comment preproc">#[derive(Clone, Copy, PartialEq)]</span>
+</pre>
+<p>Maintenant, le code compile, et le résultat est à la hauteur des attentes. Par ailleurs, souvenez-vous du code C qui implémente la fonction.</p>
+<pre class="code c literal-block">
+<span class="name">LIBEVDEV_EXPORT</span> <span class="keyword type">int</span>
+<span class="name function">libevdev_has_event_type</span><span class="punctuation">(</span><span class="keyword">const</span> <span class="keyword">struct</span> <span class="name">libevdev</span> <span class="operator">*</span><span class="name">dev</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">type</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword">return</span> <span class="name">type</span> <span class="operator">==</span> <span class="name">EV_SYN</span> <span class="operator">||</span><span class="punctuation">(</span><span class="name">type</span> <span class="operator">&lt;=</span> <span class="name">EV_MAX</span> <span class="operator">&amp;&amp;</span> <span class="name">bit_is_set</span><span class="punctuation">(</span><span class="name">dev</span><span class="operator">-&gt;</span><span class="name">bits</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">));</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Non seulement on s’est débarrassé comme prévu de la partie <code>type &lt;= EV_MAX</code>, mais aussi de la partie <code>type == EV_SYN</code> : celui-ci se trouve dans le vecteur, et nécessairement en première position, donc inutile d’avoir un cas particulier pour lui, et la vérification sera presque aussi rapide qu’avec un simple <code>type == EventType::Synchro</code>. Le corps de la fonction se résume en Rust à ceci.</p>
+<pre class="code rust literal-block">
+<span class="name">event_types</span><span class="punctuation">.</span><span class="name">contains</span><span class="punctuation">(</span><span class="operator">&amp;</span><span class="keyword">type</span><span class="punctuation">)</span>
+</pre>
+<p>Un beau résultat, n’est-ce pas ? Alors essayons de le reproduire pour <code>libevdev_has_event_code</code>. Afin de simplifier les choses, on va se concentrer sur le cas de <code>libevdev_has_event_code(EV_KEY, …)</code>, et comme <code>EV_KEY</code> a plus de 500 codes d’événement, on va là aussi se restreindre aux codes qui nous intéressent dans le cas d’une souris. Les voici, tout droit sortis de <code>include/linus/input-event-codes.h</code>.</p>
+<pre class="code c literal-block">
+<span class="comment preproc">#define BTN_MOUSE       0x110
+#define BTN_LEFT        0x110
+#define BTN_RIGHT       0x111
+#define BTN_MIDDLE      0x112
+#define BTN_SIDE        0x113
+#define BTN_EXTRA       0x114
+#define BTN_FORWARD     0x115
+#define BTN_BACK        0x116
+#define BTN_TASK        0x117</span>
+</pre>
+<p>Notez que <code>BTN_MOUSE</code> et <code>BTN_LEFT</code> sont des synonymes,  on ne gardera donc que le second. Et voici en toute logique notre type Rust correspondant.</p>
+<pre class="code rust literal-block">
+<span class="comment preproc">#[derive(Clone, Copy, PartialEq)]</span><span class="whitespace">
+</span><span class="keyword">enum</span><span class="whitespace"> </span><span class="name">EventCode</span><span class="whitespace">  </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">ButtonLeft</span><span class="whitespace">    </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x110</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonRight</span><span class="whitespace">   </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x111</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonMiddle</span><span class="whitespace">  </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x112</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonSide</span><span class="whitespace">    </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x113</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonExtra</span><span class="whitespace">   </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x114</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonForward</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x115</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonBack</span><span class="whitespace">    </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x116</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">ButtonTask</span><span class="whitespace">    </span><span class="operator">=</span><span class="whitespace"> </span><span class="literal number hex">0x117</span><span class="punctuation">,</span><span class="whitespace">
+</span><span class="punctuation">}</span>
+</pre>
+<p>Il nous faut à présent appeler l’IOCTL <code>GetKeyBits</code> que nous avons déjà défini, mais que lui passer en argument ? Avec <code>0x300</code> valeurs possibles, aucun type connu jusqu’à présent ne peut stocker autant de bits. On va faire comme en C : utiliser un tableau. Contrairement au vecteur, le tableau doit avoir une longueur connue à la compilation, et celle-ci ne changera pas. En outre, on est certains que les éléments du tableau seront contigus en mémoire.</p>
+<p>Un tableau de <code>N</code> éléments de type <code>T</code> a pour type <code>[T; N]</code>. Et pour initialiser tous ses éléments à une même valeur <code>V</code>, la syntaxe est en fait la même : <code>[V; N]</code>. Pour des valeurs différentes, la syntaxe est <code>[V1, V2, V3, …]</code>. Enfin, pour accéder au <code>n</code>-ième élément du tableau, la syntaxe est <code>tab[n]</code>, sans grande surprise (les indices commençant à 0, comme en C).</p>
+<p>Maintenant, c’est à vous. Écrivez tout le morceau de code qui récupère les <code>key_bits</code> du périphérique et stocke ceux qui correspondent à un bouton de souris dans un vecteur, avant de vérifier si <code>BTN_LEFT</code> fait partie du lot. La solution est juste en dessous, mais ne regardez pas tout de suite.</p>
+<pre class="code rust literal-block">
+<span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">key_bits</span><span class="whitespace"> </span><span class="operator">:</span><span class="whitespace"> </span><span class="punctuation">[</span><span class="name">c_ulong</span><span class="punctuation">;</span><span class="whitespace"> </span><span class="literal number integer">12</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="punctuation">[</span><span class="literal number integer">0</span><span class="punctuation">;</span><span class="whitespace"> </span><span class="literal number integer">12</span><span class="punctuation">];</span><span class="whitespace">
+
+</span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="name">_</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name">ioctl</span><span class="punctuation">(</span><span class="name">fd</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="name">IOCTL</span><span class="operator">::</span><span class="name">GetKeyBits</span><span class="punctuation">,</span><span class="whitespace"> </span><span class="operator">&amp;</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">key_bits</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">_</span><span class="whitespace"> </span><span class="keyword">as</span><span class="whitespace"> </span><span class="operator">*</span><span class="keyword">mut</span><span class="whitespace"> </span><span class="keyword type">u8</span><span class="punctuation">);</span><span class="whitespace">
+
+</span><span class="keyword declaration">let</span><span class="whitespace"> </span><span class="keyword">mut</span><span class="whitespace"> </span><span class="name">event_codes</span><span class="whitespace"> </span><span class="operator">=</span><span class="whitespace"> </span><span class="name builtin">Vec</span><span class="operator">::</span><span class="name">new</span><span class="punctuation">();</span><span class="whitespace">
+
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x110</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonLeft</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x111</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonRight</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x112</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonMiddle</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x113</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonSide</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x114</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonExtra</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x115</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonForward</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x116</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonBack</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+</span><span class="keyword">if</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="name">key_bits</span><span class="punctuation">[</span><span class="literal number integer">4</span><span class="punctuation">]</span><span class="whitespace"> </span><span class="operator">&gt;&gt;</span><span class="whitespace"> </span><span class="punctuation">(</span><span class="literal number hex">0x117</span><span class="whitespace"> </span><span class="operator">-</span><span class="whitespace"> </span><span class="literal number integer">64</span><span class="whitespace"> </span><span class="operator">*</span><span class="whitespace"> </span><span class="literal number integer">4</span><span class="punctuation">))</span><span class="whitespace"> </span><span class="operator">%</span><span class="whitespace"> </span><span class="literal number bin">0b10</span><span class="whitespace"> </span><span class="operator">==</span><span class="whitespace"> </span><span class="literal number integer">1</span><span class="whitespace">    </span><span class="punctuation">{</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">push</span><span class="punctuation">(</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonTask</span><span class="punctuation">);</span><span class="whitespace">
+</span><span class="punctuation">}</span><span class="whitespace">
+
+</span><span class="name">println</span><span class="operator">!</span><span class="punctuation">(</span><span class="literal string">&quot;libevdev_has_event_code(dev, EV_KEY, BTN_LEFT) = {}&quot;</span><span class="punctuation">,</span><span class="whitespace">
+    </span><span class="name">event_codes</span><span class="punctuation">.</span><span class="name">contains</span><span class="punctuation">(</span><span class="operator">&amp;</span><span class="name">EventCode</span><span class="operator">::</span><span class="name">ButtonLeft</span><span class="punctuation">));</span>
+</pre>
+<p>Encore une fois, le code qui sert à créer le vecteur est très laid, mais on verra comment améliorer cela dans le prochain chapitre. Et pour le reste, le code de la fonction <code>libevdev_has_event_code</code> elle-même est drastiquement simplifié. Pour rappel, voici l’original en C (sans les fonctions annexes qui rendent le tout encore plus complexe).</p>
+<pre class="code c literal-block">
+<span class="name">LIBEVDEV_EXPORT</span> <span class="keyword type">int</span>
+<span class="name function">libevdev_has_event_code</span><span class="punctuation">(</span><span class="keyword">const</span> <span class="keyword">struct</span> <span class="name">libevdev</span> <span class="operator">*</span><span class="name">dev</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">type</span><span class="punctuation">,</span> <span class="keyword type">unsigned</span> <span class="keyword type">int</span> <span class="name">code</span><span class="punctuation">)</span>
+<span class="punctuation">{</span>
+    <span class="keyword">const</span> <span class="keyword type">unsigned</span> <span class="keyword type">long</span> <span class="operator">*</span><span class="name">mask</span> <span class="operator">=</span> <span class="name builtin">NULL</span><span class="punctuation">;</span>
+    <span class="keyword type">int</span> <span class="name">max</span><span class="punctuation">;</span>
+
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="operator">!</span><span class="name">libevdev_has_event_type</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">))</span>
+        <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">type</span> <span class="operator">==</span> <span class="name">EV_SYN</span><span class="punctuation">)</span>
+        <span class="keyword">return</span> <span class="literal number integer">1</span><span class="punctuation">;</span>
+
+    <span class="name">max</span> <span class="operator">=</span> <span class="name">type_to_mask_const</span><span class="punctuation">(</span><span class="name">dev</span><span class="punctuation">,</span> <span class="name">type</span><span class="punctuation">,</span> <span class="operator">&amp;</span><span class="name">mask</span><span class="punctuation">);</span>
+
+    <span class="keyword">if</span> <span class="punctuation">(</span><span class="name">max</span> <span class="operator">==</span> <span class="operator">-</span><span class="literal number integer">1</span> <span class="operator">||</span> <span class="name">code</span> <span class="operator">&gt;</span> <span class="punctuation">(</span><span class="keyword type">unsigned</span> <span class="keyword type">int</span><span class="punctuation">)</span><span class="name">max</span><span class="punctuation">)</span>
+        <span class="keyword">return</span> <span class="literal number integer">0</span><span class="punctuation">;</span>
+
+    <span class="keyword">return</span> <span class="name">bit_is_set</span><span class="punctuation">(</span><span class="name">mask</span><span class="punctuation">,</span> <span class="name">code</span><span class="punctuation">);</span>
+<span class="punctuation">}</span>
+</pre>
+<p>Le code C a besoin de connaître le type d’événements, car une code d’événement de 0 voudra dire <code>REL_X</code> si le type est <code>EV_REL</code>, mais <code>SW_LID</code> si le type est <code>EV_SW</code>. <em>A contrario</em>, en Rust, on a un unique type <code>EventCode</code>, et <code>RelativeX</code> et <code>SwitchLid</code> (lorsqu’elles existeront, bien sûr) sont des valeurs distinctes, même si elles donnent la même valeur numérique quand on les convertit en un type entier.</p>
+<p>Plus besoin donc de vérifier que le périphérique autorise le type d’événements concerné. Plus besoin non plus de vérifier que le code d’événement est en-dessous d’une certaine limite. Et comme on a un unique vecteur de <code>EventCode</code>, plus besoin non plus d’une fonction annexe pour déterminer dans quel champ aller faire les vérifications.</p>
+<p>Et là encore, le cœur de notre fonction se réduit à une simple ligne.</p>
+<pre class="code rust literal-block">
+<span class="name">event_codes</span><span class="punctuation">.</span><span class="name">contains</span><span class="punctuation">(</span><span class="operator">&amp;</span><span class="name">code</span><span class="punctuation">)</span>
+</pre>
+<p>Un gain indéniable !</p>
+<hr class="docutils" />
+<p>C’est tout pour ce chapitre. Très peu de notions nouvelles en ce qui concerne Rust : les vecteurs et les tableaux seulement. En revanche, vous avez pu vous rendre compte de l’important travail d’exploration du code d’origine qui accompagne toute transposition dans un autre langage. Vous avez également pu commencer à découvrir comment les outils de Rust permettent d’écrire un code qui se distingue nettement de l’original en C.</p>
