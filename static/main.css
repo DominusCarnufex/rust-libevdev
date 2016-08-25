@@ -322,19 +322,19 @@ div.error:before, .important:before, .note:before, .question:before {
 }
 
 div.error:before {
-  background-image: url("/testingpages/static/error.png");
+  background-image: url("/rust-libevdev/static/error.png");
 }
 
 .important:before {
-  background-image: url("/testingpages/static/important.png");
+  background-image: url("/rust-libevdev/static/important.png");
 }
 
 .note:before {
-  background-image: url("/testingpages/static/note.png");
+  background-image: url("/rust-libevdev/static/note.png");
 }
 
 .question:before {
-  background-image: url("/testingpages/static/question.png");
+  background-image: url("/rust-libevdev/static/question.png");
 }
 
 /* CODE HIGHLIGHTING */
