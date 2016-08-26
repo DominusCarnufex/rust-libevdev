@@ -3,12 +3,47 @@
 extern crate libc;
 use libc::{c_char, c_int, c_ulong};
 
+struct CString(String);
+
+impl CString    {
+    fn new(s : &str) -> Self    {
+        let mut string = s.to_string();
+        string.push('\0');
+        CString(string)
+    }
+
+    fn as_ptr(&self) -> *const c_char   {
+        let &CString(ref st) = self;
+        st.as_ptr() as *const c_char
+    }
+
+    fn as_ref(&self) -> &str    {
+        let &CString(ref st) = self;
+        st
+    }
+}
+
 #[repr(C)]
 struct InputId  {
         bustype : u16,
         vendor  : u16,
         product : u16,
         version : u16
+}
+
+impl InputId    {
+    fn new() -> Self    {
+        InputId {
+            bustype : 0,
+            vendor  : 0,
+            product : 0,
+            version : 0
+        }
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        self as *mut Self as *mut u8
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -35,6 +70,26 @@ enum EventType  {
     FFStatus      = 0x17 // Idem.
 }
 
+impl EventType  {
+    fn new(int : u8) -> Self    {
+        match int   {
+            0x00 => EventType::Synchro,
+            0x01 => EventType::Key,
+            0x02 => EventType::Relative,
+            0x03 => EventType::Absolute,
+            0x04 => EventType::Miscellaneous,
+            0x05 => EventType::Switch,
+            0x11 => EventType::LED,
+            0x12 => EventType::Sound,
+            0x14 => EventType::Repeat,
+            0x15 => EventType::FF,
+            0x16 => EventType::Power,
+            0x17 => EventType::FFStatus,
+            _    => panic!("EventType inconnu : 0x{:x}", int)
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum EventCode  {
     ButtonLeft    = 0x110,
@@ -47,22 +102,27 @@ enum EventCode  {
     ButtonTask    = 0x117,
 }
 
-fn errno() -> c_int {
-    unsafe { *libc::__errno_location() }
-}
-
-fn new_input_id() -> InputId    {
-    InputId {
-        bustype : 0,
-        vendor  : 0,
-        product : 0,
-        version : 0
+impl EventCode  {
+    fn new(event_type : EventType, int : usize) -> Self {
+        match event_type    {
+            EventType::Key => match int {
+                0x110 => EventCode::ButtonLeft,
+                0x111 => EventCode::ButtonRight,
+                0x112 => EventCode::ButtonMiddle,
+                0x113 => EventCode::ButtonSide,
+                0x114 => EventCode::ButtonExtra,
+                0x115 => EventCode::ButtonForward,
+                0x116 => EventCode::ButtonBack,
+                0x117 => EventCode::ButtonTask,
+                _     => unimplemented!()
+            },
+            _ => unimplemented!()
+        }
     }
 }
 
-fn to_c_string(st : &mut String) -> *const c_char   {
-    st.push('\0');
-    st.as_ptr() as *const c_char
+fn errno() -> c_int {
+    unsafe { *libc::__errno_location() }
 }
 
 fn ioctl(fd : c_int, request : IOCTL, arg : *mut u8) -> c_int {
@@ -83,17 +143,18 @@ fn ioctl(fd : c_int, request : IOCTL, arg : *mut u8) -> c_int {
 }
 
 fn main()   {
-    let mut st = "/dev/input/event6".to_string();
-    let pt = to_c_string(&mut st);
-    let fd = unsafe { libc::open(pt, libc::O_RDONLY | libc::O_NONBLOCK) };
+    let name = CString::new("/dev/input/event6");
+    let fd = unsafe {
+        libc::open(name.as_ptr(), libc::O_RDONLY | libc::O_NONBLOCK)
+    };
 
     if fd < 0   {
-        panic!("Impossible d’ouvrir le fichier {}.", st);
+        panic!("Impossible d’ouvrir le fichier {}.", name.as_ref());
     }
 
-    let mut ii = new_input_id();
+    let mut ii = InputId::new();
 
-    let _ = ioctl(fd, IOCTL::GetId, &mut ii as *mut _ as *mut u8);
+    let _ = ioctl(fd, IOCTL::GetId, ii.as_mut_ptr());
 
     println!("Input device ID: bus 0x{:x} vendor 0x{:x} product 0x{:x} version 0x{:x}",
         ii.bustype, ii.vendor, ii.product, ii.version);
@@ -112,39 +173,11 @@ fn main()   {
 
     event_types.push(EventType::Synchro); // Il doit nécessairement
                                           // être présent.
-    if (bits >> 0x01) % 0b10 == 1   {
-        event_types.push(EventType::Key);
-    } 
-    if (bits >> 0x02) % 0b10 == 1   {
-        event_types.push(EventType::Relative);
-    } 
-    if (bits >> 0x03) % 0b10 == 1   {
-        event_types.push(EventType::Absolute);
-    } 
-    if (bits >> 0x04) % 0b10 == 1   {
-        event_types.push(EventType::Miscellaneous);
-    } 
-    if (bits >> 0x05) % 0b10 == 1   {
-        event_types.push(EventType::Switch);
-    } 
-    if (bits >> 0x11) % 0b10 == 1   {
-        event_types.push(EventType::LED);
-    } 
-    if (bits >> 0x12) % 0b10 == 1   {
-        event_types.push(EventType::Sound);
-    } 
-    if (bits >> 0x14) % 0b10 == 1   {
-        event_types.push(EventType::Repeat);
-    } 
-    if (bits >> 0x15) % 0b10 == 1   {
-        event_types.push(EventType::FF);
-    } 
-    if (bits >> 0x16) % 0b10 == 1   {
-        event_types.push(EventType::Power);
-    } 
-    if (bits >> 0x17) % 0b10 == 1   {
-        event_types.push(EventType::FFStatus);
-    } 
+    for i in 0x01..0x20 {
+        if (bits >> i) % 0b10 == 1  {
+            event_types.push(EventType::new(i));
+        }
+    }
 
     println!("libevdev_has_event_type(dev, EV_REL) = {}",
         event_types.contains(&EventType::Relative));
@@ -157,59 +190,13 @@ fn main()   {
 
     let mut event_codes = Vec::new();
 
-    if (key_bits[4] >> (0x110 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonLeft);
-    }
-    if (key_bits[4] >> (0x111 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonRight);
-    }
-    if (key_bits[4] >> (0x112 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonMiddle);
-    }
-    if (key_bits[4] >> (0x113 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonSide);
-    }
-    if (key_bits[4] >> (0x114 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonExtra);
-    }
-    if (key_bits[4] >> (0x115 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonForward);
-    }
-    if (key_bits[4] >> (0x116 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonBack);
-    }
-    if (key_bits[4] >> (0x117 - 64 * 4)) % 0b10 == 1    {
-        event_codes.push(EventCode::ButtonTask);
+    for i in 0x00..0x300    {
+        let a = i / 64;
+        if (key_bits[a] >> (i - 64 * a)) % 0b10 == 1    {
+            event_codes.push(EventCode::new(EventType::Key, i));
+        }
     }
 
     println!("libevdev_has_event_code(dev, EV_KEY, BTN_LEFT) = {}",
         event_codes.contains(&EventCode::ButtonLeft));
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
