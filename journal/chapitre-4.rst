@@ -450,4 +450,8 @@ C’est ici que s’achève ce quatrième chapitre. Tâchez de bien comprendre c
 
 Et parce qu’il fallait bien que cela arrive un jour, je vous laisse un exercice à réaliser avant de passer au chapitre 5. Votre mission : créer un type ``Device`` qui représente notre périphérique, avec un constructeur, et toutes les fonctions membres nécessaires pour laisser le moins de code possible dans ``main``, à l’exception des affichages.
 
+.. note::
+
+    Le type d’un vecteur de ``EventType`` est ``Vec<EventType>``. On reviendra plus tard sur cette syntaxe.
+
 La correction au prochain chapitre !
